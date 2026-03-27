@@ -70,6 +70,8 @@ if ($dateRaw) {
 }
 
 $assetData = [
+   'itemtype'    => $itemtype,
+   'id'          => $items_id,
    'name'        => $item->fields['name'] ?? __('No name'),
    'serial'      => $item->fields['serial'] ?? '',
    'otherserial' => $item->fields['otherserial'] ?? '',

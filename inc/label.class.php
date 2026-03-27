@@ -294,6 +294,8 @@ class PluginQrcodelabelLabel {
          }
 
          $assets[] = [
+            'itemtype'    => $itemtype,
+            'id'          => (int)$id,
             'name'        => $item->fields['name'] ?? __('No name'),
             'serial'      => $item->fields['serial'] ?? '',
             'otherserial' => $item->fields['otherserial'] ?? '',
