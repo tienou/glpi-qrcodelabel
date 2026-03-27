@@ -72,6 +72,34 @@ function plugin_qrcodelabel_install() {
       ]);
    }
 
+   // ── Table: glpi_plugin_qrcodelabel_printprofiles ────────────────────────
+   if (!$DB->tableExists("glpi_plugin_qrcodelabel_printprofiles")) {
+      $DB->doQuery("CREATE TABLE `glpi_plugin_qrcodelabel_printprofiles` (
+         `id`            INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+         `name`          VARCHAR(100)  NOT NULL DEFAULT '',
+         `tape_size`     VARCHAR(10)   NOT NULL DEFAULT '36mm',
+         `color_mode`    VARCHAR(20)   NOT NULL DEFAULT 'bw',
+         `show_date`     TINYINT(1)    NOT NULL DEFAULT 1,
+         `page_size`     VARCHAR(10)   NOT NULL DEFAULT 'A4',
+         `orientation`   VARCHAR(10)   NOT NULL DEFAULT 'Portrait',
+         `is_default`    TINYINT(1)    NOT NULL DEFAULT 0,
+         PRIMARY KEY (`id`)
+      ) ENGINE=InnoDB
+        DEFAULT CHARSET={$default_charset}
+        COLLATE={$default_collation}
+        ROW_FORMAT=DYNAMIC");
+
+      $DB->insert("glpi_plugin_qrcodelabel_printprofiles", [
+         'name'        => 'Standard',
+         'tape_size'   => '36mm',
+         'color_mode'  => 'bw',
+         'show_date'   => 1,
+         'page_size'   => 'A4',
+         'orientation' => 'Portrait',
+         'is_default'  => 1,
+      ]);
+   }
+
    // ── Profile rights ────────────────────────────────────────────────────────
    include_once Plugin::getPhpDir('qrcodelabel') . '/inc/profile.class.php';
    PluginQrcodelabelProfile::initProfile();
@@ -90,6 +118,10 @@ function plugin_qrcodelabel_uninstall() {
 
    if ($DB->tableExists("glpi_plugin_qrcodelabel_configs")) {
       $migration->dropTable("glpi_plugin_qrcodelabel_configs");
+   }
+
+   if ($DB->tableExists("glpi_plugin_qrcodelabel_printprofiles")) {
+      $migration->dropTable("glpi_plugin_qrcodelabel_printprofiles");
    }
 
    $migration->executeMigration();

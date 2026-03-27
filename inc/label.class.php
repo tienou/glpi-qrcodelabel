@@ -128,7 +128,9 @@ class PluginQrcodelabelLabel extends CommonDBTM {
     * Show the single-item label generation form on an asset tab.
     */
    static function showSingleItemForm(string $itemtype, int $items_id): void {
-      $config = PluginQrcodelabelConfig::getConfig();
+      $profiles = PluginQrcodelabelPrintprofile::getProfiles();
+      $defaultProfile = PluginQrcodelabelPrintprofile::getDefault();
+      $defaultId = $defaultProfile ? (int)$defaultProfile['id'] : 0;
 
       echo "<form name='qrcodelabel_form' method='post' action='"
          . Plugin::getWebDir('qrcodelabel') . "/front/label.form.php'>";
@@ -139,30 +141,23 @@ class PluginQrcodelabelLabel extends CommonDBTM {
       echo "<div class='center'><table class='tab_cadre'>";
       echo "<tr><th colspan='4'>" . __('Generate QR label', 'qrcodelabel') . "</th></tr>";
 
-      // Tape size
+      // Print profile
       echo "<tr class='tab_bg_1'>";
-      echo "<td>" . __('Tape size', 'qrcodelabel') . "</td><td>";
-      Dropdown::showFromArray('tape_size', [
-         '25mm' => '25 mm', '36mm' => '36 mm', '50mm' => '50 mm',
-      ], ['value' => $config['tape_size'], 'width' => '120']);
+      echo "<td>" . __('Print profile', 'qrcodelabel') . "</td><td>";
+      if (empty($profiles)) {
+         echo "<em>" . __('No print profile configured.', 'qrcodelabel') . "</em>";
+      } else {
+         Dropdown::showFromArray('profile_id', $profiles, [
+            'value' => $defaultId,
+            'width' => '200',
+         ]);
+      }
       echo "</td>";
 
-      // Color mode
-      echo "<td>" . __('Color mode', 'qrcodelabel') . "</td><td>";
-      Dropdown::showFromArray('color_mode', [
-         'bw'           => __('Black & White', 'qrcodelabel'),
-         'mono'         => __('Monochrome', 'qrcodelabel'),
-         'color'        => __('Color', 'qrcodelabel'),
-         'inverse'      => __('Inverse (white on black)', 'qrcodelabel'),
-         'inverse_mono' => __('Inverse Mono', 'qrcodelabel'),
-      ], ['value' => $config['color_mode'], 'width' => '200']);
-      echo "</td></tr>";
-
       // Number of copies
-      echo "<tr class='tab_bg_1'>";
       echo "<td>" . __('Number of copies', 'qrcodelabel') . "</td><td>";
       echo "<input type='text' name='nb_copies' value='1' size='5'>";
-      echo "</td><td colspan='2'></td></tr>";
+      echo "</td></tr>";
 
       // Generate button
       echo "<tr><td class='tab_bg_1' colspan='4' align='center'>";
@@ -180,59 +175,28 @@ class PluginQrcodelabelLabel extends CommonDBTM {
          return false;
       }
 
-      $config = PluginQrcodelabelConfig::getConfig();
+      $profiles = PluginQrcodelabelPrintprofile::getProfiles();
+      $defaultProfile = PluginQrcodelabelPrintprofile::getDefault();
+      $defaultId = $defaultProfile ? (int)$defaultProfile['id'] : 0;
 
       echo '<center><table>';
 
-      // Tape size
-      echo '<tr><td>' . __('Tape size', 'qrcodelabel') . ' : </td><td>';
-      Dropdown::showFromArray('tape_size', [
-         '25mm' => '25 mm',
-         '36mm' => '36 mm',
-         '50mm' => '50 mm',
-      ], ['value' => $config['tape_size'], 'width' => '120']);
-      echo '</td></tr>';
-
-      // Color mode
-      echo '<tr><td>' . __('Color mode', 'qrcodelabel') . ' : </td><td>';
-      Dropdown::showFromArray('color_mode', [
-         'bw'           => __('Black & White', 'qrcodelabel'),
-         'mono'         => __('Monochrome', 'qrcodelabel'),
-         'color'        => __('Color', 'qrcodelabel'),
-         'inverse'      => __('Inverse (white on black)', 'qrcodelabel'),
-         'inverse_mono' => __('Inverse Mono', 'qrcodelabel'),
-      ], ['value' => $config['color_mode'], 'width' => '200']);
-      echo '</td></tr>';
-
-      // Show date
-      echo '<tr><td>' . __('Show inventory date', 'qrcodelabel') . ' : </td><td>';
-      Dropdown::showYesNo('show_date', $config['show_date'], -1, ['width' => '100']);
-      echo '</td></tr>';
-
-      // Sheet-printer-only options
-      $isSheet = (($config['printer_type'] ?? 'sheet') === 'sheet');
-
-      if ($isSheet) {
-         // Page size
-         echo '<tr><td>' . __('Page size', 'qrcodelabel') . ' : </td><td>';
-         Dropdown::showFromArray('page_size', [
-            'A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal',
-         ], ['value' => $config['page_size'], 'width' => '120']);
-         echo '</td></tr>';
-
-         // Orientation
-         echo '<tr><td>' . __('Orientation', 'qrcodelabel') . ' : </td><td>';
-         Dropdown::showFromArray('orientation', [
-            'Portrait'  => __('Portrait', 'qrcodelabel'),
-            'Landscape' => __('Landscape', 'qrcodelabel'),
-         ], ['value' => $config['orientation'], 'width' => '120']);
-         echo '</td></tr>';
-
-         // Skip N labels
-         echo '<tr><td>' . __('Skip first N labels', 'qrcodelabel') . ' : </td><td>';
-         Dropdown::showNumber('eliminate', ['width' => '100']);
-         echo '</td></tr>';
+      // Print profile
+      echo '<tr><td>' . __('Print profile', 'qrcodelabel') . ' : </td><td>';
+      if (empty($profiles)) {
+         echo '<em>' . __('No print profile configured.', 'qrcodelabel') . '</em>';
+      } else {
+         Dropdown::showFromArray('profile_id', $profiles, [
+            'value' => $defaultId,
+            'width' => '200',
+         ]);
       }
+      echo '</td></tr>';
+
+      // Skip N labels (specific to each print job, not part of profile)
+      echo '<tr><td>' . __('Skip first N labels', 'qrcodelabel') . ' : </td><td>';
+      Dropdown::showNumber('eliminate', ['width' => '100']);
+      echo '</td></tr>';
 
       echo '</table></center><br/>';
       echo Html::submit(__('Generate', 'qrcodelabel'), ['value' => 'generate']);
@@ -250,21 +214,27 @@ class PluginQrcodelabelLabel extends CommonDBTM {
       global $CFG_GLPI;
       $input = $ma->getInput();
 
-      // Validate inputs against whitelists
-      $validTapeSizes   = ['25mm', '36mm', '50mm'];
-      $validColorModes  = ['bw', 'mono', 'color', 'inverse', 'inverse_mono'];
-      $validPageSizes   = ['A4', 'A3', 'LETTER', 'LEGAL'];
-      $validOrientations = ['Portrait', 'Landscape'];
+      // Load print profile from DB
+      $profileId = (int)($input['profile_id'] ?? 0);
+      $profile   = PluginQrcodelabelPrintprofile::getProfileById($profileId);
+      if (!$profile) {
+         // Fallback to default profile
+         $profile = PluginQrcodelabelPrintprofile::getDefault();
+      }
+      if (!$profile) {
+         Session::addMessageAfterRedirect(
+            __('No print profile found.', 'qrcodelabel'),
+            false, ERROR
+         );
+         $ma->itemDone($item->getType(), 0, MassiveAction::ACTION_KO);
+         return;
+      }
 
-      $tapeSize  = in_array($input['tape_size'] ?? '', $validTapeSizes, true)
-         ? $input['tape_size'] : '36mm';
-      $colorMode = in_array($input['color_mode'] ?? '', $validColorModes, true)
-         ? $input['color_mode'] : 'bw';
-      $showDate  = (int)($input['show_date'] ?? 1);
-      $pageSize  = in_array($input['page_size'] ?? '', $validPageSizes, true)
-         ? $input['page_size'] : 'A4';
-      $orient    = in_array($input['orientation'] ?? '', $validOrientations, true)
-         ? $input['orientation'] : 'Portrait';
+      $tapeSize  = $profile['tape_size'];
+      $colorMode = $profile['color_mode'];
+      $showDate  = (int)$profile['show_date'];
+      $pageSize  = $profile['page_size'];
+      $orient    = $profile['orientation'];
       $eliminate = max(0, min(100, (int)($input['eliminate'] ?? 0)));
 
       // Build asset data array

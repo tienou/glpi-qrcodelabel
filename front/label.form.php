@@ -23,16 +23,22 @@ $itemtype  = $_POST['itemtype']  ?? '';
 $items_id  = (int)($_POST['items_id'] ?? 0);
 $nbCopies  = max(1, min(50, (int)($_POST['nb_copies'] ?? 1)));
 
-// Validate tape_size and color_mode against whitelists
-$validTapeSizes   = ['25mm', '36mm', '50mm'];
-$validColorModes  = ['bw', 'mono', 'color', 'inverse', 'inverse_mono'];
-$tapeSize  = in_array($_POST['tape_size'] ?? '', $validTapeSizes, true)
-   ? $_POST['tape_size'] : '36mm';
-$colorMode = in_array($_POST['color_mode'] ?? '', $validColorModes, true)
-   ? $_POST['color_mode'] : 'bw';
-// owner_text comes from global config, not from POST form
-$ownerText = '';
+// Load print profile from DB
+$profileId = (int)($_POST['profile_id'] ?? 0);
+$profile   = PluginQrcodelabelPrintprofile::getProfileById($profileId);
+if (!$profile) {
+   // Fallback to default profile
+   $profile = PluginQrcodelabelPrintprofile::getDefault();
+}
+if (!$profile) {
+   Session::addMessageAfterRedirect(__('No print profile found.', 'qrcodelabel'), false, ERROR);
+   Html::back();
+   return;
+}
 
+$tapeSize  = $profile['tape_size'];
+$colorMode = $profile['color_mode'];
+// owner_text comes from global config, not from the profile
 $config    = PluginQrcodelabelConfig::getConfig();
 $ownerText = trim($config['owner_text'] ?? '');
 
@@ -94,9 +100,9 @@ $pdfPath = PluginQrcodelabelLabel::printPDF($assets, [
    'tape_size'   => $tapeSize,
    'color_mode'  => $colorMode,
    'owner_text'  => $ownerText,
-   'show_date'   => (bool)$config['show_date'],
-   'page_size'   => $config['page_size'],
-   'orientation' => $config['orientation'],
+   'show_date'   => (bool)$profile['show_date'],
+   'page_size'   => $profile['page_size'],
+   'orientation' => $profile['orientation'],
 ]);
 
 if ($pdfPath) {

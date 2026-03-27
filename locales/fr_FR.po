@@ -143,3 +143,30 @@ msgstr "Élément introuvable."
 
 msgid "PDF generation failed."
 msgstr "Échec de la génération du PDF."
+
+msgid "Print profile"
+msgstr "Profil d'impression"
+
+msgid "Print profiles"
+msgstr "Profils d'impression"
+
+msgid "Add a print profile"
+msgstr "Ajouter un profil d'impression"
+
+msgid "Print profile added."
+msgstr "Profil d'impression ajouté."
+
+msgid "Print profile deleted."
+msgstr "Profil d'impression supprimé."
+
+msgid "Profile name is required."
+msgstr "Le nom du profil est requis."
+
+msgid "No print profile found."
+msgstr "Aucun profil d'impression trouvé."
+
+msgid "No print profile configured."
+msgstr "Aucun profil d'impression configuré."
+
+msgid "Default"
+msgstr "Par défaut"

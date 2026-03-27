@@ -146,5 +146,137 @@ class PluginQrcodelabelConfig extends CommonDBTM {
 
       echo "</table></div>";
       Html::closeForm();
+
+      // ── Print Profiles section ──────────────────────────────────────────────
+      $this->showPrintProfilesSection();
+   }
+
+   /**
+    * Show the print profiles management section.
+    */
+   private function showPrintProfilesSection(): void {
+      $webDir = Plugin::getWebDir('qrcodelabel');
+
+      echo "<br>";
+      echo "<div class='center'>";
+      echo "<table class='tab_cadre_fixe'>";
+      echo "<tr><th colspan='8'>"
+         . __('Print profiles', 'qrcodelabel')
+         . "</th></tr>";
+
+      // Table header
+      echo "<tr class='tab_bg_2'>";
+      echo "<th>" . __('Name') . "</th>";
+      echo "<th>" . __('Tape size', 'qrcodelabel') . "</th>";
+      echo "<th>" . __('Color mode', 'qrcodelabel') . "</th>";
+      echo "<th>" . __('Show inventory date', 'qrcodelabel') . "</th>";
+      echo "<th>" . __('Page size', 'qrcodelabel') . "</th>";
+      echo "<th>" . __('Orientation', 'qrcodelabel') . "</th>";
+      echo "<th>" . __('Default', 'qrcodelabel') . "</th>";
+      echo "<th>" . __('Actions') . "</th>";
+      echo "</tr>";
+
+      // List existing profiles
+      $colorModeLabels = [
+         'bw'           => __('Black & White', 'qrcodelabel'),
+         'mono'         => __('Monochrome', 'qrcodelabel'),
+         'color'        => __('Color', 'qrcodelabel'),
+         'inverse'      => __('Inverse (white on black)', 'qrcodelabel'),
+         'inverse_mono' => __('Inverse Mono', 'qrcodelabel'),
+      ];
+      $orientationLabels = [
+         'Portrait'  => __('Portrait', 'qrcodelabel'),
+         'Landscape' => __('Landscape', 'qrcodelabel'),
+      ];
+
+      $profiles = PluginQrcodelabelPrintprofile::getProfiles();
+      global $DB;
+      $iterator = $DB->request([
+         'FROM'  => 'glpi_plugin_qrcodelabel_printprofiles',
+         'ORDER' => 'name ASC',
+      ]);
+      foreach ($iterator as $row) {
+         echo "<tr class='tab_bg_1'>";
+         echo "<td>" . htmlspecialchars($row['name']) . "</td>";
+         echo "<td>" . htmlspecialchars($row['tape_size']) . "</td>";
+         echo "<td>" . ($colorModeLabels[$row['color_mode']] ?? $row['color_mode']) . "</td>";
+         echo "<td>" . ($row['show_date'] ? __('Yes') : __('No')) . "</td>";
+         echo "<td>" . htmlspecialchars($row['page_size']) . "</td>";
+         echo "<td>" . ($orientationLabels[$row['orientation']] ?? $row['orientation']) . "</td>";
+         echo "<td>" . ($row['is_default'] ? '<b>' . __('Yes') . '</b>' : __('No')) . "</td>";
+         echo "<td>";
+         echo "<form method='post' action='" . $webDir . "/front/config.form.php' style='display:inline'>";
+         echo "<input type='hidden' name='delete_profile' value='1'>";
+         echo "<input type='hidden' name='profile_id' value='" . (int)$row['id'] . "'>";
+         echo "<input type='submit' value='" . __('Delete') . "' class='submit' "
+            . "onclick=\"return confirm('" . __('Are you sure?') . "')\">";
+         echo Html::closeForm(false);
+         echo "</td></tr>";
+      }
+
+      // Add new profile form
+      echo "<tr><th colspan='8'>"
+         . __('Add a print profile', 'qrcodelabel')
+         . "</th></tr>";
+
+      echo "<form method='post' action='" . $webDir . "/front/config.form.php'>";
+      echo "<input type='hidden' name='add_profile' value='1'>";
+
+      echo "<tr class='tab_bg_1'>";
+
+      // Name
+      echo "<td><input type='text' name='profile_name' value='' size='15' required "
+         . "placeholder='" . __('Name') . "'></td>";
+
+      // Tape size
+      echo "<td>";
+      Dropdown::showFromArray('profile_tape_size', [
+         '25mm' => '25 mm', '36mm' => '36 mm', '50mm' => '50 mm',
+      ], ['value' => '36mm', 'width' => '100']);
+      echo "</td>";
+
+      // Color mode
+      echo "<td>";
+      Dropdown::showFromArray('profile_color_mode', [
+         'bw'           => __('Black & White', 'qrcodelabel'),
+         'mono'         => __('Monochrome', 'qrcodelabel'),
+         'color'        => __('Color', 'qrcodelabel'),
+         'inverse'      => __('Inverse (white on black)', 'qrcodelabel'),
+         'inverse_mono' => __('Inverse Mono', 'qrcodelabel'),
+      ], ['value' => 'bw', 'width' => '150']);
+      echo "</td>";
+
+      // Show date
+      echo "<td>";
+      Dropdown::showYesNo('profile_show_date', 1, -1, ['width' => '80']);
+      echo "</td>";
+
+      // Page size
+      echo "<td>";
+      Dropdown::showFromArray('profile_page_size', [
+         'A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal',
+      ], ['value' => 'A4', 'width' => '100']);
+      echo "</td>";
+
+      // Orientation
+      echo "<td>";
+      Dropdown::showFromArray('profile_orientation', [
+         'Portrait'  => __('Portrait', 'qrcodelabel'),
+         'Landscape' => __('Landscape', 'qrcodelabel'),
+      ], ['value' => 'Portrait', 'width' => '100']);
+      echo "</td>";
+
+      // Is default
+      echo "<td>";
+      Dropdown::showYesNo('profile_is_default', 0, -1, ['width' => '80']);
+      echo "</td>";
+
+      // Submit
+      echo "<td><input type='submit' value='" . __('Add') . "' class='submit'></td>";
+
+      echo "</tr>";
+      echo Html::closeForm(false);
+
+      echo "</table></div>";
    }
 }

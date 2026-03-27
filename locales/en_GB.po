@@ -143,3 +143,30 @@ msgstr "Item not found."
 
 msgid "PDF generation failed."
 msgstr "PDF generation failed."
+
+msgid "Print profile"
+msgstr "Print profile"
+
+msgid "Print profiles"
+msgstr "Print profiles"
+
+msgid "Add a print profile"
+msgstr "Add a print profile"
+
+msgid "Print profile added."
+msgstr "Print profile added."
+
+msgid "Print profile deleted."
+msgstr "Print profile deleted."
+
+msgid "Profile name is required."
+msgstr "Profile name is required."
+
+msgid "No print profile found."
+msgstr "No print profile found."
+
+msgid "No print profile configured."
+msgstr "No print profile configured."
+
+msgid "Default"
+msgstr "Default"

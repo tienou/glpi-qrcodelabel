@@ -73,6 +73,7 @@ function plugin_init_qrcodelabel() {
       include_once(Plugin::getPhpDir('qrcodelabel') . '/inc/profile.class.php');
       include_once(Plugin::getPhpDir('qrcodelabel') . '/inc/label.class.php');
       include_once(Plugin::getPhpDir('qrcodelabel') . '/inc/config.class.php');
+      include_once(Plugin::getPhpDir('qrcodelabel') . '/inc/printprofile.class.php');
    }
 
    if (Session::haveRight('plugin_qrcodelabel_label', CREATE)
