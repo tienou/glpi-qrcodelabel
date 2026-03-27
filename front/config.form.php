@@ -41,22 +41,24 @@ if (isset($_POST['dropLogo'])) {
       global $DB;
       $DB->insert('glpi_plugin_qrcodelabel_configs', [
          'id' => 1,
-         'tape_size'   => $_POST['tape_size']   ?? '36mm',
-         'color_mode'  => $_POST['color_mode']  ?? 'bw',
-         'owner_text'  => $_POST['owner_text']  ?? '',
-         'show_date'   => (int)($_POST['show_date'] ?? 1),
-         'page_size'   => $_POST['page_size']   ?? 'A4',
-         'orientation' => $_POST['orientation']  ?? 'Portrait',
+         'printer_type' => $_POST['printer_type'] ?? 'sheet',
+         'tape_size'    => $_POST['tape_size']    ?? '36mm',
+         'color_mode'   => $_POST['color_mode']   ?? 'bw',
+         'show_date'    => (int)($_POST['show_date'] ?? 1),
+         'page_size'    => $_POST['page_size']    ?? 'A4',
+         'orientation'  => $_POST['orientation']   ?? 'Portrait',
+         'owner_text'   => $_POST['owner_text']   ?? '',
       ]);
    } else {
       $config->update([
-         'id'          => 1,
-         'tape_size'   => $_POST['tape_size']   ?? '36mm',
-         'color_mode'  => $_POST['color_mode']  ?? 'bw',
-         'owner_text'  => $_POST['owner_text']  ?? '',
-         'show_date'   => (int)($_POST['show_date'] ?? 1),
-         'page_size'   => $_POST['page_size']   ?? 'A4',
-         'orientation' => $_POST['orientation']  ?? 'Portrait',
+         'id'            => 1,
+         'printer_type'  => $_POST['printer_type'] ?? 'sheet',
+         'tape_size'     => $_POST['tape_size']    ?? '36mm',
+         'color_mode'    => $_POST['color_mode']   ?? 'bw',
+         'show_date'     => (int)($_POST['show_date'] ?? 1),
+         'page_size'     => $_POST['page_size']    ?? 'A4',
+         'orientation'   => $_POST['orientation']   ?? 'Portrait',
+         'owner_text'    => $_POST['owner_text']   ?? '',
       ]);
    }
    Session::addMessageAfterRedirect(__('Configuration saved.', 'qrcodelabel'));

@@ -23,10 +23,12 @@ $itemtype  = $_POST['itemtype']  ?? '';
 $items_id  = (int)($_POST['items_id'] ?? 0);
 $tapeSize  = $_POST['tape_size']  ?? '36mm';
 $colorMode = $_POST['color_mode'] ?? 'bw';
-$ownerText = trim($_POST['owner_text'] ?? '');
+// owner_text comes from global config, not from POST form
+$ownerText = '';
 $nbCopies  = max(1, min(50, (int)($_POST['nb_copies'] ?? 1)));
 
-$config = PluginQrcodelabelConfig::getConfig();
+$config    = PluginQrcodelabelConfig::getConfig();
+$ownerText = trim($config['owner_text'] ?? '');
 
 if (!$itemtype || !$items_id) {
    Session::addMessageAfterRedirect(__('Invalid request.', 'qrcodelabel'), false, ERROR);

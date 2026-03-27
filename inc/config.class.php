@@ -24,12 +24,13 @@ class PluginQrcodelabelConfig extends CommonDBTM {
     */
    static function getConfig(): array {
       $defaults = [
-         'tape_size'   => '36mm',
-         'color_mode'  => 'bw',
-         'owner_text'  => '',
-         'show_date'   => 1,
-         'page_size'   => 'A4',
-         'orientation' => 'Portrait',
+         'printer_type' => 'sheet',
+         'tape_size'    => '36mm',
+         'color_mode'   => 'bw',
+         'show_date'    => 1,
+         'page_size'    => 'A4',
+         'orientation'  => 'Portrait',
+         'owner_text'   => '',
       ];
 
       $config = new self();
@@ -58,6 +59,15 @@ class PluginQrcodelabelConfig extends CommonDBTM {
          . __('QR Code Label - Configuration', 'qrcodelabel')
          . "</th></tr>";
 
+      // ── Printer type ────────────────────────────────────────────────────
+      echo "<tr class='tab_bg_1'>";
+      echo "<td>" . __('Printer type', 'qrcodelabel') . "</td><td colspan='3'>";
+      Dropdown::showFromArray('printer_type', [
+         'sheet'  => __('Sheet printer (A4/Letter label grid)', 'qrcodelabel'),
+         'label'  => __('Label printer (Brother QL, Dymo...)', 'qrcodelabel'),
+      ], ['value' => $config['printer_type'], 'width' => '350']);
+      echo "</td></tr>";
+
       // ── Tape size ─────────────────────────────────────────────────────────
       echo "<tr class='tab_bg_1'>";
       echo "<td>" . __('Default tape size', 'qrcodelabel') . "</td><td>";
@@ -75,14 +85,6 @@ class PluginQrcodelabelConfig extends CommonDBTM {
          'inverse'      => __('Inverse (white on black)', 'qrcodelabel'),
          'inverse_mono' => __('Inverse Mono', 'qrcodelabel'),
       ], ['value' => $config['color_mode'], 'width' => '200']);
-      echo "</td></tr>";
-
-      // ── Owner text ────────────────────────────────────────────────────────
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>" . __('Owner text', 'qrcodelabel') . "</td><td colspan='3'>";
-      echo "<input type='text' name='owner_text' value='"
-         . htmlspecialchars($config['owner_text'])
-         . "' size='50' placeholder='" . __('e.g. Property of: My Company', 'qrcodelabel') . "'>";
       echo "</td></tr>";
 
       // ── Show date ─────────────────────────────────────────────────────────
@@ -106,6 +108,14 @@ class PluginQrcodelabelConfig extends CommonDBTM {
          'Landscape' => __('Landscape', 'qrcodelabel'),
       ], ['value' => $config['orientation'], 'width' => '120']);
       echo "</td><td colspan='2'></td></tr>";
+
+      // ── Owner text ────────────────────────────────────────────────────────
+      echo "<tr class='tab_bg_1'>";
+      echo "<td>" . __('Owner text', 'qrcodelabel') . "</td><td colspan='3'>";
+      echo "<input type='text' name='owner_text' value='"
+         . htmlspecialchars($config['owner_text'] ?? '', ENT_QUOTES) . "'"
+         . " size='50' placeholder='" . __('e.g. Property of: My Company', 'qrcodelabel') . "'>";
+      echo "</td></tr>";
 
       // ── Save button ───────────────────────────────────────────────────────
       echo "<tr><td class='tab_bg_1' colspan='4' align='center'>";

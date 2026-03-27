@@ -48,13 +48,14 @@ function plugin_qrcodelabel_install() {
    // ── Table: glpi_plugin_qrcodelabel_configs ────────────────────────────────
    if (!$DB->tableExists("glpi_plugin_qrcodelabel_configs")) {
       $DB->doQuery("CREATE TABLE `glpi_plugin_qrcodelabel_configs` (
-         `id`          INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-         `tape_size`   VARCHAR(10)   NOT NULL DEFAULT '36mm',
-         `color_mode`  VARCHAR(20)   NOT NULL DEFAULT 'bw',
-         `owner_text`  VARCHAR(255)  NOT NULL DEFAULT '',
-         `show_date`   TINYINT(1)    NOT NULL DEFAULT 1,
-         `page_size`   VARCHAR(10)   NOT NULL DEFAULT 'A4',
-         `orientation` VARCHAR(10)   NOT NULL DEFAULT 'Portrait',
+         `id`            INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+         `printer_type`  VARCHAR(20)   NOT NULL DEFAULT 'sheet',
+         `tape_size`     VARCHAR(10)   NOT NULL DEFAULT '36mm',
+         `color_mode`    VARCHAR(20)   NOT NULL DEFAULT 'bw',
+         `show_date`     TINYINT(1)    NOT NULL DEFAULT 1,
+         `page_size`     VARCHAR(10)   NOT NULL DEFAULT 'A4',
+         `orientation`   VARCHAR(10)   NOT NULL DEFAULT 'Portrait',
+         `owner_text`    VARCHAR(255)  NOT NULL DEFAULT '',
          PRIMARY KEY (`id`)
       ) ENGINE=InnoDB
         DEFAULT CHARSET={$default_charset}
@@ -62,13 +63,14 @@ function plugin_qrcodelabel_install() {
         ROW_FORMAT=DYNAMIC");
 
       $DB->insert("glpi_plugin_qrcodelabel_configs", [
-         'id'          => 1,
-         'tape_size'   => '36mm',
-         'color_mode'  => 'bw',
-         'owner_text'  => '',
-         'show_date'   => 1,
-         'page_size'   => 'A4',
-         'orientation' => 'Portrait',
+         'id'            => 1,
+         'printer_type'  => 'sheet',
+         'tape_size'     => '36mm',
+         'color_mode'    => 'bw',
+         'show_date'     => 1,
+         'page_size'     => 'A4',
+         'orientation'   => 'Portrait',
+         'owner_text'    => '',
       ]);
    }
 

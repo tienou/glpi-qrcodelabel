@@ -157,15 +157,11 @@ class PluginQrcodelabelLabel {
       ], ['value' => $config['color_mode'], 'width' => '200']);
       echo "</td></tr>";
 
-      // Owner text + copies
+      // Number of copies
       echo "<tr class='tab_bg_1'>";
-      echo "<td>" . __('Owner text', 'qrcodelabel') . "</td><td>";
-      echo "<input type='text' name='owner_text' value='"
-         . htmlspecialchars($config['owner_text']) . "' size='25'>";
-      echo "</td>";
       echo "<td>" . __('Number of copies', 'qrcodelabel') . "</td><td>";
       echo "<input type='text' name='nb_copies' value='1' size='5'>";
-      echo "</td></tr>";
+      echo "</td><td colspan='2'></td></tr>";
 
       // Generate button
       echo "<tr><td class='tab_bg_1' colspan='4' align='center'>";
@@ -207,35 +203,35 @@ class PluginQrcodelabelLabel {
       ], ['value' => $config['color_mode'], 'width' => '200']);
       echo '</td></tr>';
 
-      // Owner text
-      echo '<tr><td>' . __('Owner text', 'qrcodelabel') . ' : </td><td>';
-      echo '<input type="text" name="owner_text" value="' . htmlspecialchars($config['owner_text']) . '" size="30">';
-      echo '</td></tr>';
-
       // Show date
       echo '<tr><td>' . __('Show inventory date', 'qrcodelabel') . ' : </td><td>';
       Dropdown::showYesNo('show_date', $config['show_date'], -1, ['width' => '100']);
       echo '</td></tr>';
 
-      // Page size
-      echo '<tr><td>' . __('Page size', 'qrcodelabel') . ' : </td><td>';
-      Dropdown::showFromArray('page_size', [
-         'A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal',
-      ], ['value' => $config['page_size'], 'width' => '120']);
-      echo '</td></tr>';
+      // Sheet-printer-only options
+      $isSheet = (($config['printer_type'] ?? 'sheet') === 'sheet');
 
-      // Orientation
-      echo '<tr><td>' . __('Orientation', 'qrcodelabel') . ' : </td><td>';
-      Dropdown::showFromArray('orientation', [
-         'Portrait'  => __('Portrait', 'qrcodelabel'),
-         'Landscape' => __('Landscape', 'qrcodelabel'),
-      ], ['value' => $config['orientation'], 'width' => '120']);
-      echo '</td></tr>';
+      if ($isSheet) {
+         // Page size
+         echo '<tr><td>' . __('Page size', 'qrcodelabel') . ' : </td><td>';
+         Dropdown::showFromArray('page_size', [
+            'A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal',
+         ], ['value' => $config['page_size'], 'width' => '120']);
+         echo '</td></tr>';
 
-      // Skip N labels
-      echo '<tr><td>' . __('Skip first N labels', 'qrcodelabel') . ' : </td><td>';
-      Dropdown::showNumber('eliminate', ['width' => '100']);
-      echo '</td></tr>';
+         // Orientation
+         echo '<tr><td>' . __('Orientation', 'qrcodelabel') . ' : </td><td>';
+         Dropdown::showFromArray('orientation', [
+            'Portrait'  => __('Portrait', 'qrcodelabel'),
+            'Landscape' => __('Landscape', 'qrcodelabel'),
+         ], ['value' => $config['orientation'], 'width' => '120']);
+         echo '</td></tr>';
+
+         // Skip N labels
+         echo '<tr><td>' . __('Skip first N labels', 'qrcodelabel') . ' : </td><td>';
+         Dropdown::showNumber('eliminate', ['width' => '100']);
+         echo '</td></tr>';
+      }
 
       echo '</table></center><br/>';
       echo Html::submit(__('Generate', 'qrcodelabel'), ['value' => 'generate']);
@@ -255,7 +251,6 @@ class PluginQrcodelabelLabel {
 
       $tapeSize  = $input['tape_size']  ?? '36mm';
       $colorMode = $input['color_mode'] ?? 'bw';
-      $ownerText = $input['owner_text'] ?? '';
       $showDate  = (int)($input['show_date'] ?? 1);
       $pageSize  = $input['page_size']  ?? 'A4';
       $orient    = $input['orientation'] ?? 'Portrait';
@@ -264,7 +259,7 @@ class PluginQrcodelabelLabel {
       // Build asset data array
       $assets = [];
 
-      // Prepend blank slots
+      // Prepend blank slots (for partially used label sheets)
       for ($i = 0; $i < $eliminate; $i++) {
          $assets[] = null;
       }
@@ -314,13 +309,15 @@ class PluginQrcodelabelLabel {
          return;
       }
 
+      $config = PluginQrcodelabelConfig::getConfig();
+
       $pdfPath = self::printPDF($assets, [
-         'tape_size'  => $tapeSize,
-         'color_mode' => $colorMode,
-         'owner_text' => $ownerText,
-         'show_date'  => $showDate,
-         'page_size'  => $pageSize,
+         'tape_size'   => $tapeSize,
+         'color_mode'  => $colorMode,
+         'show_date'   => $showDate,
+         'page_size'   => $pageSize,
          'orientation' => $orient,
+         'owner_text'  => $config['owner_text'] ?? '',
       ]);
 
       if ($pdfPath) {
@@ -335,23 +332,169 @@ class PluginQrcodelabelLabel {
       }
    }
 
+   // ── High-res QR code generation via GD (sharp like Python app) ──────────
+
+   /**
+    * Generate a crisp QR code PNG at high resolution using TCPDF's QR engine.
+    *
+    * @param  string $data     Data to encode
+    * @param  array  $fgColor  [r,g,b] foreground
+    * @param  array  $bgColor  [r,g,b] background
+    * @return string|false     Path to temp PNG file
+    */
+   private static function generateQrPng(string $data, array $fgColor, array $bgColor) {
+      // Use TCPDF's barcode classes to get the QR matrix
+      if (!class_exists('TCPDF2DBarcode')) {
+         $path = GLPI_ROOT . '/vendor/tecnickcom/tcpdf/tcpdf_barcodes_2d.php';
+         if (file_exists($path)) {
+            require_once $path;
+         } else {
+            return false;
+         }
+      }
+
+      $barcodeObj = new TCPDF2DBarcode($data, 'QRCODE,M');
+      $grid = $barcodeObj->getBarcodeArray();
+
+      if (!$grid || empty($grid['num_cols']) || empty($grid['num_rows'])) {
+         return false;
+      }
+
+      $cols = $grid['num_cols'];
+      $rows = $grid['num_rows'];
+
+      // Scale: each module = 10px → crisp at any print size
+      $scale  = 10;
+      $border = 2; // modules of quiet zone
+      $imgW   = ($cols + 2 * $border) * $scale;
+      $imgH   = ($rows + 2 * $border) * $scale;
+
+      $img = imagecreatetruecolor($imgW, $imgH);
+      $bg  = imagecolorallocate($img, $bgColor[0], $bgColor[1], $bgColor[2]);
+      $fg  = imagecolorallocate($img, $fgColor[0], $fgColor[1], $fgColor[2]);
+      imagefill($img, 0, 0, $bg);
+
+      for ($r = 0; $r < $rows; $r++) {
+         for ($c = 0; $c < $cols; $c++) {
+            if ($grid['bcode'][$r][$c] == 1) {
+               $px = ($c + $border) * $scale;
+               $py = ($r + $border) * $scale;
+               imagefilledrectangle($img, $px, $py, $px + $scale - 1, $py + $scale - 1, $fg);
+            }
+         }
+      }
+
+      $cacheKey = md5($data . implode(',', $fgColor) . implode(',', $bgColor));
+      $tmpPath  = GLPI_TMP_DIR . '/qrcodelabel_qr_' . $cacheKey . '.png';
+      imagepng($img, $tmpPath);
+      imagedestroy($img);
+
+      return $tmpPath;
+   }
+
+   // ── Logo color processing (matches Python exe logic) ────────────────────
+
+   /**
+    * Process logo for different color modes using GD.
+    *
+    * - inverse / inverse_mono: non-white pixels → white, white bg → transparent
+    * - mono: non-white pixels → black, white bg stays white
+    * - bw: convert to grayscale
+    *
+    * Returns path to a temp PNG file.
+    */
+   private static function processLogo(string $srcPath, string $colorMode): string {
+      $cacheKey = md5($srcPath . $colorMode);
+      $tmpPath  = GLPI_TMP_DIR . '/qrcodelabel_logo_' . $cacheKey . '.png';
+      if (file_exists($tmpPath)) {
+         return $tmpPath;
+      }
+
+      $src = @imagecreatefrompng($srcPath);
+      if (!$src) {
+         // Try JPEG/other
+         $src = @imagecreatefromstring(file_get_contents($srcPath));
+      }
+      if (!$src) {
+         return $srcPath; // fallback to original
+      }
+
+      $w = imagesx($src);
+      $h = imagesy($src);
+
+      $dst = imagecreatetruecolor($w, $h);
+      imagesavealpha($dst, true);
+      imagealphablending($dst, false);
+      $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+      imagefill($dst, 0, 0, $transparent);
+
+      $inverse  = in_array($colorMode, ['inverse', 'inverse_mono']);
+      $isMono   = in_array($colorMode, ['mono', 'inverse_mono']);
+
+      for ($px = 0; $px < $w; $px++) {
+         for ($py = 0; $py < $h; $py++) {
+            $rgba = imagecolorat($src, $px, $py);
+            $r = ($rgba >> 16) & 0xFF;
+            $g = ($rgba >> 8) & 0xFF;
+            $b = $rgba & 0xFF;
+            $a = ($rgba >> 24) & 0x7F; // 0=opaque, 127=transparent
+
+            // Already transparent → keep transparent
+            if ($a > 100) {
+               imagesetpixel($dst, $px, $py, $transparent);
+               continue;
+            }
+
+            $gray = (int)(0.299 * $r + 0.587 * $g + 0.114 * $b);
+
+            if ($inverse) {
+               // Near-white pixels (bg) → transparent; rest → white
+               if ($gray > 240) {
+                  imagesetpixel($dst, $px, $py, $transparent);
+               } else {
+                  $white = imagecolorallocatealpha($dst, 255, 255, 255, $a);
+                  imagesetpixel($dst, $px, $py, $white);
+               }
+            } else if ($isMono) {
+               // Near-white → white; rest → black
+               if ($gray > 240) {
+                  $c = imagecolorallocatealpha($dst, 255, 255, 255, $a);
+               } else {
+                  $c = imagecolorallocatealpha($dst, 0, 0, 0, $a);
+               }
+               imagesetpixel($dst, $px, $py, $c);
+            } else {
+               // bw: grayscale
+               $c = imagecolorallocatealpha($dst, $gray, $gray, $gray, $a);
+               imagesetpixel($dst, $px, $py, $c);
+            }
+         }
+      }
+
+      imagepng($dst, $tmpPath);
+      imagedestroy($src);
+      imagedestroy($dst);
+
+      return $tmpPath;
+   }
+
    // ── PDF Generation ─────────────────────────────────────────────────────────
 
    /**
     * Generate a PDF with rich QR code labels using GLPI's native TCPDF.
     *
     * @param  array $assets  Array of asset data (or null for blank slots).
-    * @param  array $params  Options: tape_size, color_mode, owner_text, show_date, page_size, orientation.
+    * @param  array $params  Options: tape_size, color_mode, show_date, page_size, orientation.
     * @return string|false   Absolute path to the generated PDF, or false on failure.
     */
    static function printPDF(array $assets, array $params) {
 
       $tapeSize  = $params['tape_size']  ?? '36mm';
       $colorMode = $params['color_mode'] ?? 'bw';
-      $ownerText = trim($params['owner_text'] ?? '');
       $showDate  = (bool)($params['show_date'] ?? true);
       $pageSize  = strtoupper($params['page_size'] ?? 'A4');
       $isLandscape = (($params['orientation'] ?? 'Portrait') === 'Landscape');
+      $ownerText = trim($params['owner_text'] ?? '');
 
       $ts = self::$tapeSizes[$tapeSize] ?? self::$tapeSizes['36mm'];
       $cm = self::$colorModes[$colorMode] ?? self::$colorModes['bw'];
@@ -420,51 +563,45 @@ class PluginQrcodelabelLabel {
          }
 
          // ── Background fill (inverse modes) ────────────────────────────────
-         if ($cm['bg'][0] === 0) {
-            $pdf->SetFillColor($cm['bg'][0], $cm['bg'][1], $cm['bg'][2]);
+         $inverse = in_array($colorMode, ['inverse', 'inverse_mono']);
+         if ($inverse) {
+            $pdf->SetFillColor(0, 0, 0);
             $pdf->Rect($x, $y, $labelW, $labelH, 'F');
          }
 
          // ── Border ─────────────────────────────────────────────────────────
          $pdf->SetDrawColor($cm['border'][0], $cm['border'][1], $cm['border'][2]);
-         $pdf->SetLineWidth(0.3);
+         $pdf->SetLineWidth(0.5);
          $pdf->Rect($x, $y, $labelW, $labelH, 'D');
 
-         // ── QR code (vector, same URL as GLPI native) ──────────────────────
+         // ── QR code (high-res PNG, sharp like Python app) ──────────────────
          $qrX = $x + 3;
          $qrY = $y + ($labelH - $qrSize) / 2;
-         $pdf->write2DBarcode(
-            $asset['url'],
-            'QRCODE,M',
-            $qrX, $qrY,
-            $qrSize, $qrSize,
-            [
-               'border'        => false,
-               'vpadding'      => 'auto',
-               'hpadding'      => 'auto',
-               'fgcolor'       => $cm['qr_fg'],
-               'bgcolor'       => $cm['qr_bg'],
-               'module_width'  => 1,
-               'module_height' => 1,
-            ],
-            'N'
-         );
+         $qrPng = self::generateQrPng($asset['url'], $cm['qr_fg'], $cm['qr_bg']);
+         if ($qrPng && file_exists($qrPng)) {
+            $pdf->Image($qrPng, $qrX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
+         } else {
+            // Fallback to TCPDF vector QR
+            $pdf->write2DBarcode($asset['url'], 'QRCODE,M', $qrX, $qrY, $qrSize, $qrSize, [
+               'border' => false, 'vpadding' => 0.5, 'hpadding' => 0.5,
+               'fgcolor' => $cm['qr_fg'], 'bgcolor' => $cm['qr_bg'],
+            ], 'N');
+         }
 
          // ── Vertical separator ─────────────────────────────────────────────
          $sx = $x + 3 + $qrSize + 2;
          $pdf->SetDrawColor($cm['sep'][0], $cm['sep'][1], $cm['sep'][2]);
-         $pdf->SetLineWidth(0.2);
+         $pdf->SetLineWidth(0.3);
          $pdf->Line($sx, $y + 3, $sx, $y + $labelH - 3);
 
          // Text area starts here
          $tx = $sx + 3;
-         $textW = $labelW - ($tx - $x) - 2; // available text width
+         $textW = $labelW - ($tx - $x) - 2;
 
-         // ── Logo (top-right corner) ────────────────────────────────────────
+         // ── Logo (top-right corner, color-adapted like Python) ─────────────
          if ($hasLogo) {
             $logoH = $ts['logo_h'];
             $logoMaxW = $textW;
-            // Get logo aspect ratio
             $imgInfo = @getimagesize($logoPath);
             if ($imgInfo && $imgInfo[1] > 0) {
                $ratio = $imgInfo[0] / $imgInfo[1];
@@ -475,80 +612,104 @@ class PluginQrcodelabelLabel {
                }
                $logoX = $x + $labelW - $logoW - 2;
                $logoY = $y + 1;
-               $pdf->Image($logoPath, $logoX, $logoY, $logoW, $logoH, '', '', '', false, 300);
+
+               // Process logo per color mode (same logic as Python exe)
+               $useLogoPath = $logoPath;
+               if ($cm['invert_logo'] || $colorMode === 'mono') {
+                  $useLogoPath = self::processLogo($logoPath, $colorMode);
+               }
+               $pdf->Image($useLogoPath, $logoX, $logoY, $logoW, $logoH, 'PNG', '', '', false, 300);
             }
          }
 
-         // ── Text fields ────────────────────────────────────────────────────
-         $curY = $y + 2;
+         // ── Text fields — fixed mm positions from Python ReportLab ─────────
+         // Python (bottom-up):  drawString(tx, y + lh - Nmm)
+         // TCPDF  (top-down):   SetXY(tx, y + Nmm - baseline_offset)
+         // TCPDF baseline offset ≈ font_pt * 0.35 (ascender)
 
-         // Asset name (bold)
-         $pdf->SetFont('helvetica', 'B', $ts['font_name']);
-         $pdf->SetTextColor($cm['main'][0], $cm['main'][1], $cm['main'][2]);
          $maxChars = (int)($labelW * 0.22);
          $name = $asset['name'];
          if (mb_strlen($name) > $maxChars + 1) {
             $name = mb_substr($name, 0, $maxChars) . '...';
          }
-         $nameY = $y + $labelH - 10;
+
+         // Fixed offsets per tape size (from top of label, in mm)
+         // Derived from Python: offset_from_top = lh - python_offset
+         // 36mm: name@10, type@14, sn@19.5, date@24, loc@28, bottom@lh-3
+         // 25mm: name@7, type@10, sn@13.5, bottom@lh-3
+         // 50mm: name@12, type@17, sn@24, date@30, loc@35, bottom@lh-3
          if ($tapeSize === '25mm') {
-            $nameY = $y + $labelH - 8;
+            $oName = 7; $oType = 10; $oSn = 13.5; $oDate = 0; $oLoc = 16;
+         } else if ($tapeSize === '50mm') {
+            $oName = 12; $oType = 17; $oSn = 24; $oDate = 30; $oLoc = 35;
+         } else { // 36mm
+            $oName = 10; $oType = 14; $oSn = 19.5; $oDate = 24; $oLoc = 28;
          }
-         $pdf->SetXY($tx, $nameY);
+
+         // Asset name (bold)
+         $pdf->SetFont('helvetica', 'B', $ts['font_name']);
+         $pdf->SetTextColor($cm['main'][0], $cm['main'][1], $cm['main'][2]);
+         $pdf->SetXY($tx, $y + $oName - $ts['font_name'] * 0.35);
          $pdf->Cell($textW, 0, $name, 0, 0, 'L');
 
          // Type
          $pdf->SetFont('helvetica', '', $ts['font_type']);
          $pdf->SetTextColor($cm['sub'][0], $cm['sub'][1], $cm['sub'][2]);
-         $typeY = $nameY + ($ts['font_name'] * 0.4);
-         $pdf->SetXY($tx, $typeY);
+         $pdf->SetXY($tx, $y + $oType - $ts['font_type'] * 0.35);
          $pdf->Cell($textW, 0, $asset['type_label'], 0, 0, 'L');
 
          // Serial number
          $pdf->SetFont('helvetica', 'B', $ts['font_sn']);
          $pdf->SetTextColor($cm['sn'][0], $cm['sn'][1], $cm['sn'][2]);
          $sn = $asset['serial'] ?: 'N/A';
-         $snY = $typeY + ($ts['font_type'] * 0.5);
-         $pdf->SetXY($tx, $snY);
+         $pdf->SetXY($tx, $y + $oSn - $ts['font_sn'] * 0.35);
          $pdf->Cell($textW, 0, 'S/N: ' . mb_substr($sn, 0, 20), 0, 0, 'L');
 
          // Inventory date (not on 25mm)
-         $nextY = $snY + ($ts['font_sn'] * 0.5);
          $dateInv = $asset['date_inv'] ?? '';
-         if ($dateInv && $tapeSize !== '25mm' && $showDate) {
+         $hasDate = ($dateInv && $tapeSize !== '25mm' && $showDate && $oDate > 0);
+         if ($hasDate) {
             $pdf->SetFont('helvetica', '', $ts['font_loc']);
             $pdf->SetTextColor($cm['sub'][0], $cm['sub'][1], $cm['sub'][2]);
-            $pdf->SetXY($tx, $nextY);
+            $pdf->SetXY($tx, $y + $oDate - $ts['font_loc'] * 0.35);
             $pdf->Cell($textW, 0, 'Inv: ' . $dateInv, 0, 0, 'L');
-            $nextY += ($ts['font_loc'] * 0.5);
          }
 
          // Location
          $location = $asset['location'] ?? '';
-         if ($location) {
-            $pdf->SetFont('helvetica', 'I', $ts['font_loc']);
-            $pdf->SetTextColor($cm['loc'][0], $cm['loc'][1], $cm['loc'][2]);
-            $pdf->SetXY($tx, $nextY);
-            $pdf->Cell($textW, 0, mb_substr($location, 0, 22), 0, 0, 'L');
+         if ($location && $tapeSize !== '25mm') {
+            $locOffset = $hasDate ? $oLoc : $oDate;
+            if ($locOffset > 0) {
+               $pdf->SetFont('helvetica', 'I', $ts['font_loc']);
+               $pdf->SetTextColor($cm['loc'][0], $cm['loc'][1], $cm['loc'][2]);
+               $pdf->SetXY($tx, $y + $locOffset - $ts['font_loc'] * 0.35);
+               $pdf->Cell($textW, 0, mb_substr($location, 0, 22), 0, 0, 'L');
+            }
          }
 
-         // ── Bottom line: owner + inventory number ──────────────────────────
-         $bottomY = $y + $labelH - ($ts['font_inv'] * 0.4) - 1;
-
-         if ($ownerText) {
-            $pdf->SetFont('helvetica', 'B', $ts['font_inv']);
-            $pdf->SetTextColor($cm['main'][0], $cm['main'][1], $cm['main'][2]);
-            $pdf->SetXY($tx, $bottomY);
-            $pdf->Cell($textW / 2, 0, $ownerText, 0, 0, 'L');
-         }
-
-         $inv = $asset['otherserial'] ?? '';
-         if ($inv && $tapeSize !== '25mm') {
+         // ── Bottom line: owner text (left) + inventory number (right)
+         $inv      = $asset['otherserial'] ?? '';
+         $hasOwner = ($ownerText !== '');
+         $hasInv   = ($inv !== '');
+         if (($hasOwner || $hasInv) && $tapeSize !== '25mm') {
+            $bottomY = $y + $labelH - 3 - ($ts['font_inv'] * 0.35);
             $pdf->SetFont('helvetica', '', $ts['font_inv']);
             $pdf->SetTextColor($cm['inv'][0], $cm['inv'][1], $cm['inv'][2]);
-            $pdf->SetXY($tx, $bottomY);
-            $align = $ownerText ? 'R' : 'L';
-            $pdf->Cell($textW, 0, 'Inv: ' . $inv, 0, 0, $align);
+            if ($hasOwner && $hasInv) {
+               // Owner text left, inv number right
+               $invStr = 'Inv: ' . $inv;
+               $pdf->SetXY($tx, $bottomY);
+               $pdf->Cell($textW, 0, $ownerText, 0, 0, 'L');
+               // Overlay inv number right-aligned on same line
+               $pdf->SetXY($tx, $bottomY);
+               $pdf->Cell($textW, 0, $invStr, 0, 0, 'R');
+            } else if ($hasOwner) {
+               $pdf->SetXY($tx, $bottomY);
+               $pdf->Cell($textW, 0, $ownerText, 0, 0, 'L');
+            } else {
+               $pdf->SetXY($tx, $bottomY);
+               $pdf->Cell($textW, 0, 'Inv: ' . $inv, 0, 0, 'L');
+            }
          }
 
       } // foreach assets
