@@ -343,27 +343,25 @@ class PluginQrcodelabelLabel {
     * @return string|false     Path to temp PNG file
     */
    private static function generateQrPng(string $itemtype, int $id, array $fgColor, array $bgColor) {
-      // Directly reuse GLPI's BarcodeManager — same object, same PNG as the asset form
-      $item = new $itemtype();
-      if (!$item->getFromDB($id)) {
-         return false;
-      }
-      $bm    = new BarcodeManager();
-      $qrObj = $bm->generateQRCode($item);
-      if (!$qrObj) {
-         return false;
-      }
+      global $CFG_GLPI;
 
-      // getPngData(false) = GD fallback (no Imagick required)
-      $pngData = $qrObj->getPngData(false);
+      // Build same URL as GLPI's BarcodeManager
+      $url = $CFG_GLPI['url_base'] . $itemtype::getFormURLWithID($id, false);
+
+      // Use same library + params as BarcodeManager::generateQRCode() internally
+      $barcode = new \Com\Tecnick\Barcode\Barcode();
+      $qrObj   = $barcode->getBarcodeObj('QRCODE,H', $url, 200, 200, 'black', [10, 10, 10, 10])
+                          ->setBackgroundColor('white');
+
+      $pngData = $qrObj->getPngData(false); // false = GD, no Imagick needed
       $src     = imagecreatefromstring($pngData);
       if (!$src) {
          return false;
       }
 
       // Apply fg/bg colors via GD (needed for inverse/mono modes)
-      $w = imagesx($src);
-      $h = imagesy($src);
+      $w   = imagesx($src);
+      $h   = imagesy($src);
       $dst = imagecreatetruecolor($w, $h);
       $bgC = imagecolorallocate($dst, $bgColor[0], $bgColor[1], $bgColor[2]);
       $fgC = imagecolorallocate($dst, $fgColor[0], $fgColor[1], $fgColor[2]);
@@ -380,7 +378,7 @@ class PluginQrcodelabelLabel {
       }
       imagedestroy($src);
 
-      $cacheKey = md5($itemtype . $id . implode(',', $fgColor) . implode(',', $bgColor));
+      $cacheKey = md5($url . implode(',', $fgColor) . implode(',', $bgColor));
       $tmpPath  = GLPI_TMP_DIR . '/qrcodelabel_qr_' . $cacheKey . '.png';
       imagepng($dst, $tmpPath);
       imagedestroy($dst);
@@ -578,14 +576,6 @@ class PluginQrcodelabelLabel {
             : false;
          if ($qrPng && file_exists($qrPng)) {
             $pdf->Image($qrPng, $qrX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
-         } else if (!empty($asset['url'])) {
-            // Fallback: generate URL-based QR with GLPI's library
-            $barcode = new \Com\Tecnick\Barcode\Barcode();
-            $qrObj   = $barcode->getBarcodeObj('QRCODE,H', $asset['url'], 200, 200, 'black', [0,0,0,0]);
-            $tmp     = GLPI_TMP_DIR . '/qrcodelabel_fb_' . md5($asset['url']) . '.png';
-            file_put_contents($tmp, $qrObj->getPngData(false));
-            $pdf->Image($tmp, $qrX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
-            @unlink($tmp);
          }
 
          // ── Vertical separator ─────────────────────────────────────────────
