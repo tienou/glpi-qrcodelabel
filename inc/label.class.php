@@ -573,10 +573,12 @@ class PluginQrcodelabelLabel {
          // ── QR code — GLPI native (BarcodeManager) ────────────────────────
          $qrX = $x + 3;
          $qrY = $y + ($labelH - $qrSize) / 2;
-         $qrPng = self::generateQrPng($asset['itemtype'], $asset['id'], $cm['qr_fg'], $cm['qr_bg']);
+         $qrPng = (!empty($asset['itemtype']) && !empty($asset['id']))
+            ? self::generateQrPng($asset['itemtype'], $asset['id'], $cm['qr_fg'], $cm['qr_bg'])
+            : false;
          if ($qrPng && file_exists($qrPng)) {
             $pdf->Image($qrPng, $qrX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
-         } else {
+         } else if (!empty($asset['url'])) {
             // Fallback: generate URL-based QR with GLPI's library
             $barcode = new \Com\Tecnick\Barcode\Barcode();
             $qrObj   = $barcode->getBarcodeObj('QRCODE,H', $asset['url'], 200, 200, 'black', [0,0,0,0]);
