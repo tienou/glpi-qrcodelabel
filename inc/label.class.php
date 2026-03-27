@@ -22,7 +22,7 @@ if (!defined('GLPI_ROOT') && !defined('GLPI_DIR')) {
  * No external vendor dependencies — TCPDF ships with GLPI 10 and 11.
  * QR codes are rendered as native vector paths (write2DBarcode).
  */
-class PluginQrcodelabelLabel {
+class PluginQrcodelabelLabel extends CommonDBTM {
 
    static $rightname = 'plugin_qrcodelabel_label';
 
@@ -92,12 +92,13 @@ class PluginQrcodelabelLabel {
    }
 
    static function getMenuContent(): array {
+      $webDir = Plugin::getWebDir('qrcodelabel', false);
       return [
          'title' => self::getTypeName(),
-         'page'  => Plugin::getWebDir('qrcodelabel', false) . '/front/config.php',
+         'page'  => $webDir . '/front/config.php',
          'icon'  => 'fas fa-qrcode',
          'links' => [
-            'config' => '/front/config.php',
+            'config' => $webDir . '/front/config.php',
          ],
       ];
    }
@@ -249,12 +250,22 @@ class PluginQrcodelabelLabel {
       global $CFG_GLPI;
       $input = $ma->getInput();
 
-      $tapeSize  = $input['tape_size']  ?? '36mm';
-      $colorMode = $input['color_mode'] ?? 'bw';
+      // Validate inputs against whitelists
+      $validTapeSizes   = ['25mm', '36mm', '50mm'];
+      $validColorModes  = ['bw', 'mono', 'color', 'inverse', 'inverse_mono'];
+      $validPageSizes   = ['A4', 'A3', 'LETTER', 'LEGAL'];
+      $validOrientations = ['Portrait', 'Landscape'];
+
+      $tapeSize  = in_array($input['tape_size'] ?? '', $validTapeSizes, true)
+         ? $input['tape_size'] : '36mm';
+      $colorMode = in_array($input['color_mode'] ?? '', $validColorModes, true)
+         ? $input['color_mode'] : 'bw';
       $showDate  = (int)($input['show_date'] ?? 1);
-      $pageSize  = $input['page_size']  ?? 'A4';
-      $orient    = $input['orientation'] ?? 'Portrait';
-      $eliminate = (int)($input['eliminate'] ?? 0);
+      $pageSize  = in_array($input['page_size'] ?? '', $validPageSizes, true)
+         ? $input['page_size'] : 'A4';
+      $orient    = in_array($input['orientation'] ?? '', $validOrientations, true)
+         ? $input['orientation'] : 'Portrait';
+      $eliminate = max(0, min(100, (int)($input['eliminate'] ?? 0)));
 
       // Build asset data array
       $assets = [];
@@ -306,7 +317,9 @@ class PluginQrcodelabelLabel {
          ];
       }
 
-      if (empty($assets)) {
+      // Check that we have at least one real asset (not just null skip slots)
+      $realAssets = array_filter($assets, static function ($a) { return $a !== null; });
+      if (empty($realAssets)) {
          $ma->itemDone($item->getType(), 0, MassiveAction::ACTION_KO);
          return;
       }
@@ -350,40 +363,42 @@ class PluginQrcodelabelLabel {
       // Build same URL as GLPI's BarcodeManager
       $url = $CFG_GLPI['url_base'] . $itemtype::getFormURLWithID($id, false);
 
-      // Use same library + params as BarcodeManager::generateQRCode() internally
+      // Use same library + params as BarcodeManager::generateQRCode() (QRCODE,H)
       $barcode = new \Com\Tecnick\Barcode\Barcode();
-      $qrObj   = $barcode->getBarcodeObj('QRCODE,H', $url, 200, 200, 'black', [10, 10, 10, 10])
-                          ->setBackgroundColor('white');
+      $qrObj   = $barcode->getBarcodeObj('QRCODE,H', $url, -1, -1, 'black', [0, 0, 0, 0]);
 
-      $pngData = $qrObj->getPngData(false); // false = GD, no Imagick needed
-      $src     = imagecreatefromstring($pngData);
-      if (!$src) {
+      // Get raw matrix and render with GD at high resolution
+      $grid = $qrObj->getGridArray('0', '1');
+      $rows = count($grid);
+      $cols = $rows > 0 ? count($grid[0]) : 0;
+      if ($rows === 0 || $cols === 0) {
          return false;
       }
 
-      // Apply fg/bg colors via GD (needed for inverse/mono modes)
-      $w   = imagesx($src);
-      $h   = imagesy($src);
-      $dst = imagecreatetruecolor($w, $h);
-      $bgC = imagecolorallocate($dst, $bgColor[0], $bgColor[1], $bgColor[2]);
-      $fgC = imagecolorallocate($dst, $fgColor[0], $fgColor[1], $fgColor[2]);
-      imagefill($dst, 0, 0, $bgC);
+      $scale  = 10; // 10px per module → crisp at any print size
+      $border = 4;  // quiet zone (same as BarcodeManager padding)
+      $imgW   = ($cols + 2 * $border) * $scale;
+      $imgH   = ($rows + 2 * $border) * $scale;
 
-      for ($py = 0; $py < $h; $py++) {
-         for ($px = 0; $px < $w; $px++) {
-            $c   = imagecolorat($src, $px, $py);
-            $lum = (($c >> 16 & 0xFF) + ($c >> 8 & 0xFF) + ($c & 0xFF)) / 3;
-            if ($lum < 128) {
-               imagesetpixel($dst, $px, $py, $fgC);
+      $img = imagecreatetruecolor($imgW, $imgH);
+      $bg  = imagecolorallocate($img, $bgColor[0], $bgColor[1], $bgColor[2]);
+      $fg  = imagecolorallocate($img, $fgColor[0], $fgColor[1], $fgColor[2]);
+      imagefill($img, 0, 0, $bg);
+
+      for ($r = 0; $r < $rows; $r++) {
+         for ($c = 0; $c < $cols; $c++) {
+            if (isset($grid[$r][$c]) && $grid[$r][$c] === '1') {
+               $px = ($c + $border) * $scale;
+               $py = ($r + $border) * $scale;
+               imagefilledrectangle($img, $px, $py, $px + $scale - 1, $py + $scale - 1, $fg);
             }
          }
       }
-      imagedestroy($src);
 
       $cacheKey = md5($url . implode(',', $fgColor) . implode(',', $bgColor));
       $tmpPath  = GLPI_TMP_DIR . '/qrcodelabel_qr_' . $cacheKey . '.png';
-      imagepng($dst, $tmpPath);
-      imagedestroy($dst);
+      imagepng($img, $tmpPath);
+      imagedestroy($img);
 
       return $tmpPath;
    }
@@ -710,6 +725,20 @@ class PluginQrcodelabelLabel {
       $pdfFile = 'qrcodelabel_' . (int)$_SESSION['glpiID'] . '_' . $tapeSize . '_' . mt_rand() . '.pdf';
       $pdfPath = GLPI_TMP_DIR . '/' . $pdfFile;
       $pdf->Output($pdfPath, 'F');
+
+      // ── Clean up temporary QR and logo PNGs ────────────────────────────────
+      $tmpFiles = glob(GLPI_TMP_DIR . '/qrcodelabel_qr_*.png');
+      if ($tmpFiles) {
+         foreach ($tmpFiles as $tmpFile) {
+            @unlink($tmpFile);
+         }
+      }
+      $tmpLogos = glob(GLPI_TMP_DIR . '/qrcodelabel_logo_*.png');
+      if ($tmpLogos) {
+         foreach ($tmpLogos as $tmpFile) {
+            @unlink($tmpFile);
+         }
+      }
 
       return $pdfPath;
    }
