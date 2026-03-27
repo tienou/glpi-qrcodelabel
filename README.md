@@ -6,13 +6,13 @@ Generate rich inventory labels with QR codes directly from GLPI. Designed for Br
 
 ## Features
 
-- **QR codes identical to GLPI native** — encodes the same asset URL as the built-in GLPI QR code
+- **QR codes identical to GLPI native** — uses the same `tc-lib-barcode` library with `QRCODE,H` as GLPI's built-in `BarcodeManager`
 - **Rich labels** — QR code + asset name + type + serial number + location + inventory date + company logo + owner text
 - **3 tape sizes** — 25mm, 36mm, 50mm with automatic layout adaptation
 - **5 color modes** — Black & White, Monochrome, Color, Inverse (white on black), Inverse Mono
 - **Single item** — "QR Label" tab on each asset page with copy count
 - **Bulk generation** — Massive Action on asset lists to print labels for multiple items at once
-- **Zero dependencies** — uses GLPI's bundled TCPDF for vector PDF rendering (no external libraries)
+- **Zero dependencies** — uses only GLPI's bundled libraries (TCPDF for PDF, tc-lib-barcode for QR)
 - **GLPI 10 and 11** — fully compatible with both versions (Symfony LegacyFileLoadController support)
 - **GLPI Cloud compatible** — no filesystem dependencies, ephemeral PDF with auto-cleanup
 - **Multilingual** — French and English included, extensible via .po files
@@ -93,7 +93,7 @@ After enabling the plugin:
 
 1. Open any supported asset (Computer, Monitor, etc.)
 2. Click the **QR Label** tab
-3. Choose tape size, color mode, owner text, and number of copies
+3. Choose tape size, color mode, and number of copies
 4. Click **Generate** → a download link appears
 
 ### Print labels in bulk
@@ -107,12 +107,13 @@ After enabling the plugin:
 ## Technical Details
 
 - **PDF engine**: GLPI's native TCPDF (`vendor/tecnickcom/tcpdf/`) — no external dependencies
-- **QR rendering**: `write2DBarcode()` — vector paths, perfect scaling at any size
+- **QR rendering**: `Com\Tecnick\Barcode\Barcode` (`QRCODE,H`) — same library and params as GLPI's `BarcodeManager`, rendered as high-res PNG via GD (10px/module, 300 DPI)
 - **PDF delivery**: Ephemeral token system — PDF exists only during download, auto-deleted after
 - **GLPI 11 compatibility**: Respects Symfony's `LegacyFileLoadController` buffer (no `ob_end_clean`, no `exit`)
 - **Database**: Single config table `glpi_plugin_qrcodelabel_configs`
 - **Rights**: `plugin_qrcodelabel_label` (CREATE) + `plugin_qrcodelabel_config` (UPDATE)
-- **PHP**: 7.4 – 8.5
+- **Security**: Input whitelist validation, logo upload verification (`getimagesize`), no raw POST to DB
+- **PHP**: 7.4 – 8.4
 
 ## Submitting to GLPI Marketplace
 
