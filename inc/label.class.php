@@ -343,25 +343,16 @@ class PluginQrcodelabelLabel {
     * @return string|false     Path to temp PNG file
     */
    private static function generateQrPng(string $data, array $fgColor, array $bgColor) {
-      // Use TCPDF's barcode classes to get the QR matrix
-      if (!class_exists('TCPDF2DBarcode')) {
-         $path = GLPI_ROOT . '/vendor/tecnickcom/tcpdf/tcpdf_barcodes_2d.php';
-         if (file_exists($path)) {
-            require_once $path;
-         } else {
-            return false;
-         }
-      }
+      // Use same library and params as GLPI's BarcodeManager → identical QR code
+      $barcode = new \Com\Tecnick\Barcode\Barcode();
+      $qrObj   = $barcode->getBarcodeObj('QRCODE,H', $data, 200, 200, 'black', [0, 0, 0, 0]);
+      $grid    = $qrObj->getGridArray();
+      $rows    = count($grid);
+      $cols    = $rows > 0 ? count($grid[0]) : 0;
 
-      $barcodeObj = new TCPDF2DBarcode($data, 'QRCODE,M');
-      $grid = $barcodeObj->getBarcodeArray();
-
-      if (!$grid || empty($grid['num_cols']) || empty($grid['num_rows'])) {
+      if ($rows === 0 || $cols === 0) {
          return false;
       }
-
-      $cols = $grid['num_cols'];
-      $rows = $grid['num_rows'];
 
       // Scale: each module = 10px → crisp at any print size
       $scale  = 10;
@@ -376,7 +367,7 @@ class PluginQrcodelabelLabel {
 
       for ($r = 0; $r < $rows; $r++) {
          for ($c = 0; $c < $cols; $c++) {
-            if ($grid['bcode'][$r][$c] == 1) {
+            if (isset($grid[$r][$c]) && $grid[$r][$c] === '1') {
                $px = ($c + $border) * $scale;
                $py = ($r + $border) * $scale;
                imagefilledrectangle($img, $px, $py, $px + $scale - 1, $py + $scale - 1, $fg);
