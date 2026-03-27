@@ -53,8 +53,7 @@ class PluginQrcodelabelProfile extends Profile {
    }
 
    static function cleanProfiles($item) {
-      $profile = new self();
-      $profile->removeRights();
+      self::removeRights();
    }
 
    function getAllRights() {

@@ -15,7 +15,7 @@
 Session::checkLoginUser();
 
 if (empty($_GET['file'])) {
-   Http::notFound();
+   Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);
    return;
 }
 
@@ -23,7 +23,7 @@ $file = str_replace(['..', '\\'], ['', '/'], $_GET['file']);
 $path = GLPI_PLUGIN_DOC_DIR . '/' . $file;
 
 if (!file_exists($path)) {
-   Http::notFound();
+   Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);
    return;
 }
 
@@ -32,7 +32,7 @@ $realPath = realpath($path);
 $realDoc  = realpath(GLPI_PLUGIN_DOC_DIR);
 if ($realPath === false || $realDoc === false
       || strpos($realPath, $realDoc . DIRECTORY_SEPARATOR) !== 0) {
-   Http::notFound();
+   Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);
    return;
 }
 

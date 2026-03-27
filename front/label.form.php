@@ -21,11 +21,17 @@ global $CFG_GLPI;
 
 $itemtype  = $_POST['itemtype']  ?? '';
 $items_id  = (int)($_POST['items_id'] ?? 0);
-$tapeSize  = $_POST['tape_size']  ?? '36mm';
-$colorMode = $_POST['color_mode'] ?? 'bw';
+$nbCopies  = max(1, min(50, (int)($_POST['nb_copies'] ?? 1)));
+
+// Validate tape_size and color_mode against whitelists
+$validTapeSizes   = ['25mm', '36mm', '50mm'];
+$validColorModes  = ['bw', 'mono', 'color', 'inverse', 'inverse_mono'];
+$tapeSize  = in_array($_POST['tape_size'] ?? '', $validTapeSizes, true)
+   ? $_POST['tape_size'] : '36mm';
+$colorMode = in_array($_POST['color_mode'] ?? '', $validColorModes, true)
+   ? $_POST['color_mode'] : 'bw';
 // owner_text comes from global config, not from POST form
 $ownerText = '';
-$nbCopies  = max(1, min(50, (int)($_POST['nb_copies'] ?? 1)));
 
 $config    = PluginQrcodelabelConfig::getConfig();
 $ownerText = trim($config['owner_text'] ?? '');

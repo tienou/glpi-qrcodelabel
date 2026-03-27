@@ -84,21 +84,9 @@ function plugin_init_qrcodelabel() {
       // Massive Action
       $PLUGIN_HOOKS['use_massive_action']['qrcodelabel'] = 1;
 
-      // Menu registration — compatible with GLPI 10 and 11
-      if (version_compare(GLPI_VERSION, '11.0', '>=')) {
-         // GLPI 11+ menu via menu_toadd hook
-         $PLUGIN_HOOKS['menu_toadd']['qrcodelabel'] = ['tools' => 'PluginQrcodelabelLabel'];
-      } else {
-         // GLPI 10.x menu
-         $web_dir = '/' . Plugin::getWebDir('qrcodelabel', false);
-         $PLUGIN_HOOKS['submenu_entry']['qrcodelabel']['options']['qrcodelabel']['title']
-            = __('QR Code Labels', 'qrcodelabel');
-         $PLUGIN_HOOKS['submenu_entry']['qrcodelabel']['options']['qrcodelabel']['page']
-            = $web_dir . '/front/config.php';
-         $PLUGIN_HOOKS['submenu_entry']['qrcodelabel']['options']['qrcodelabel']['links']['config']
-            = $web_dir . '/front/config.php';
-         $PLUGIN_HOOKS['helpdesk_menu_entry']['qrcodelabel'] = false;
-      }
+      // Menu registration — works on both GLPI 10 and 11
+      $PLUGIN_HOOKS['menu_toadd']['qrcodelabel'] = ['tools' => 'PluginQrcodelabelLabel'];
+      $PLUGIN_HOOKS['helpdesk_menu_entry']['qrcodelabel'] = false;
    }
 
    // Config page

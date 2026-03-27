@@ -35,14 +35,12 @@ function plugin_qrcodelabel_MassiveActions($itemtype) {
 function plugin_qrcodelabel_install() {
    global $DB;
 
-   $migration = new Migration(PLUGIN_QRCODELABEL_VERSION);
-
    $default_charset   = DBConnection::getDefaultCharset();
    $default_collation = DBConnection::getDefaultCollation();
 
    // Create plugin doc directory (for logo storage)
    if (!file_exists(GLPI_PLUGIN_DOC_DIR . "/qrcodelabel")) {
-      mkdir(GLPI_PLUGIN_DOC_DIR . "/qrcodelabel");
+      mkdir(GLPI_PLUGIN_DOC_DIR . "/qrcodelabel", 0755, true);
    }
 
    // ── Table: glpi_plugin_qrcodelabel_configs ────────────────────────────────

@@ -27,7 +27,7 @@ Session::checkLoginUser();
 
 // ── Resolve token ─────────────────────────────────────────────────────────
 if (empty($_GET['token'])) {
-   Http::notFound();
+   Html::displayErrorAndDie(__('Invalid request.', 'qrcodelabel'), true);
    return;
 }
 
