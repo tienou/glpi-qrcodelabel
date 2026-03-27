@@ -1,0 +1,145 @@
+# English translation for GLPI QR Code Label Plugin
+# Copyright (C) 2026 Etienne Gaillard
+# License: AGPL v3+
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: GLPI Plugin QR Code Label 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-27 12:00+0100\n"
+"PO-Revision-Date: 2026-03-27 12:00+0100\n"
+"Last-Translator: Etienne Gaillard\n"
+"Language-Team: English\n"
+"Language: en_GB\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "QR Code Label"
+msgstr "QR Code Label"
+
+msgid "QR Code Labels"
+msgstr "QR Code Labels"
+
+msgid "Print QR labels"
+msgstr "Print QR labels"
+
+msgid "Download QR labels"
+msgstr "Download QR labels"
+
+msgid "Generate"
+msgstr "Generate"
+
+msgid "Tape size"
+msgstr "Tape size"
+
+msgid "Color mode"
+msgstr "Colour mode"
+
+msgid "Black & White"
+msgstr "Black & White"
+
+msgid "Monochrome"
+msgstr "Monochrome"
+
+msgid "Color"
+msgstr "Colour"
+
+msgid "Inverse (white on black)"
+msgstr "Inverse (white on black)"
+
+msgid "Inverse Mono"
+msgstr "Inverse Mono"
+
+msgid "Owner text"
+msgstr "Owner text"
+
+msgid "e.g. Property of: My Company"
+msgstr "e.g. Property of: My Company"
+
+msgid "Show inventory date"
+msgstr "Show inventory date"
+
+msgid "Page size"
+msgstr "Page size"
+
+msgid "Orientation"
+msgstr "Orientation"
+
+msgid "Portrait"
+msgstr "Portrait"
+
+msgid "Landscape"
+msgstr "Landscape"
+
+msgid "Skip first N labels"
+msgstr "Skip first N labels"
+
+msgid "QR Code Label - Configuration"
+msgstr "QR Code Label - Configuration"
+
+msgid "Default tape size"
+msgstr "Default tape size"
+
+msgid "Default color mode"
+msgstr "Default colour mode"
+
+msgid "Default page size"
+msgstr "Default page size"
+
+msgid "Default orientation"
+msgstr "Default orientation"
+
+msgid "Company logo"
+msgstr "Company logo"
+
+msgid "Delete the logo"
+msgstr "Delete the logo"
+
+msgid "Upload logo"
+msgstr "Upload logo"
+
+msgid "The logo has been removed."
+msgstr "The logo has been removed."
+
+msgid "Logo uploaded successfully."
+msgstr "Logo uploaded successfully."
+
+msgid "Configuration saved."
+msgstr "Configuration saved."
+
+msgid "Manage configuration"
+msgstr "Manage configuration"
+
+msgid "Generate QR labels"
+msgstr "Generate QR labels"
+
+msgid "TCPDF not found in GLPI vendor directory."
+msgstr "TCPDF not found in GLPI vendor directory."
+
+msgid "The requested file no longer exists or has already been downloaded."
+msgstr "The requested file no longer exists or has already been downloaded."
+
+msgid "Unauthorized access to this file"
+msgstr "Unauthorised access to this file"
+
+msgid "QR Label"
+msgstr "QR Label"
+
+msgid "Generate QR label"
+msgstr "Generate QR label"
+
+msgid "Number of copies"
+msgstr "Number of copies"
+
+msgid "Invalid request."
+msgstr "Invalid request."
+
+msgid "Unsupported item type."
+msgstr "Unsupported item type."
+
+msgid "Item not found."
+msgstr "Item not found."
+
+msgid "PDF generation failed."
+msgstr "PDF generation failed."

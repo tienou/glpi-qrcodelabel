@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+   <name>QR Code Label</name>
+   <key>qrcodelabel</key>
+   <state>stable</state>
+   <description>
+      <short>
+         <fr><![CDATA[Génère des étiquettes d'inventaire avec QR codes pour imprimantes d'étiquettes]]></fr>
+         <en><![CDATA[Generate inventory labels with QR codes for label printers]]></en>
+      </short>
+      <long>
+         <fr><![CDATA[Plugin GLPI pour générer des étiquettes d'inventaire au format PDF contenant : QR code (lien vers la fiche GLPI), nom de l'asset, type, numéro de série, localisation, date d'inventaire, logo entreprise et texte propriétaire. Compatible imprimantes Brother (rubans 25mm, 36mm, 50mm). 5 modes couleur : Noir & Blanc, Monochrome, Couleur, Inverse, Inverse Mono.]]></fr>
+         <en><![CDATA[GLPI plugin to generate PDF inventory labels containing: QR code (link to GLPI asset page), asset name, type, serial number, location, inventory date, company logo and owner text. Compatible with Brother label printers (25mm, 36mm, 50mm tape). 5 color modes: Black & White, Monochrome, Color, Inverse, Inverse Mono.]]></en>
+      </long>
+   </description>
+   <homepage>https://github.com/tienou/glpi-qrcodelabel</homepage>
+   <download>https://github.com/tienou/glpi-qrcodelabel/releases</download>
+   <authors>
+      <author>Etienne Gaillard</author>
+   </authors>
+   <versions>
+      <version>
+         <num>1.0.0</num>
+         <compatibility>~10.0.0</compatibility>
+         <compatibility>~11.0.0</compatibility>
+      </version>
+   </versions>
+   <langs>
+      <lang>en_GB</lang>
+      <lang>fr_FR</lang>
+   </langs>
+   <license><![CDATA[AGPL v3+]]></license>
+   <tags>
+      <fr>
+         <tag>étiquette</tag>
+         <tag>QRcode</tag>
+         <tag>inventaire</tag>
+         <tag>impression</tag>
+         <tag>PDF</tag>
+      </fr>
+      <en>
+         <tag>label</tag>
+         <tag>QRcode</tag>
+         <tag>inventory</tag>
+         <tag>print</tag>
+         <tag>PDF</tag>
+      </en>
+   </tags>
+</root>
