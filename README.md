@@ -10,8 +10,9 @@ Generate rich inventory labels with QR codes directly from GLPI. Designed for Br
 - **Rich labels** — QR code + asset name + type + serial number + location + inventory date + company logo + owner text
 - **3 tape sizes** — 25mm, 36mm, 50mm with automatic layout adaptation
 - **5 color modes** — Black & White, Monochrome, Color, Inverse (white on black), Inverse Mono
-- **Single item** — "QR Label" tab on each asset page with copy count
-- **Bulk generation** — Massive Action on asset lists to print labels for multiple items at once
+- **Print profiles** — create reusable profiles (tape size, color, page format) in admin config, select one at print time
+- **Single item** — "QR Label" tab on each asset page with profile selection + copy count
+- **Bulk generation** — Massive Action on asset lists, just pick a profile and print
 - **Zero dependencies** — uses only GLPI's bundled libraries (TCPDF for PDF, tc-lib-barcode for QR)
 - **GLPI 10 and 11** — fully compatible with both versions (Symfony LegacyFileLoadController support)
 - **GLPI Cloud compatible** — no filesystem dependencies, ephemeral PDF with auto-cleanup
@@ -78,14 +79,19 @@ Setup → Plugins → QR Code Label (gear icon) → set defaults, upload logo.
 After enabling the plugin:
 
 1. Go to **Setup → Plugins** → click the gear icon next to "QR Code Label"
-2. Configure defaults:
-   - **Tape size** — 25mm, 36mm or 50mm
-   - **Color mode** — Black & White, Monochrome, Color, Inverse, Inverse Mono
+2. Configure global settings:
+   - **Printer type** — Sheet (A4 grid) or Label (Brother QL, Dymo...)
    - **Owner text** — e.g. "Property of: My Company" (displayed on each label)
-   - **Show inventory date** — toggle first inventory date display
-   - **Page size** — A4, A3, Letter, Legal
-   - **Orientation** — Portrait or Landscape
 3. **Upload a company logo** (PNG format, displayed top-right of each label)
+4. **Create print profiles** — each profile stores:
+   - Tape size (25mm, 36mm, 50mm)
+   - Color mode (Black & White, Monochrome, Color, Inverse, Inverse Mono)
+   - Show inventory date (Yes/No)
+   - Page size (A4, A3, Letter, Legal)
+   - Orientation (Portrait, Landscape)
+   - Default flag
+
+   Profiles are editable inline and one can be marked as default.
 
 ## Usage
 
@@ -93,7 +99,7 @@ After enabling the plugin:
 
 1. Open any supported asset (Computer, Monitor, etc.)
 2. Click the **QR Label** tab
-3. Choose tape size, color mode, and number of copies
+3. Select a print profile and number of copies
 4. Click **Generate** → a download link appears
 
 ### Print labels in bulk
@@ -101,7 +107,7 @@ After enabling the plugin:
 1. Go to any asset list (e.g. Assets → Computers)
 2. Select the items you want labels for
 3. Click **Actions** → choose **QR Code Label - Print QR labels**
-4. Configure options (tape size, color, etc.)
+4. Select a print profile (+ optionally skip N first labels for partial sheets)
 5. Click **Generate** → download the PDF
 
 ## Technical Details
@@ -110,7 +116,7 @@ After enabling the plugin:
 - **QR rendering**: `Com\Tecnick\Barcode\Barcode` (`QRCODE,H`) — same library and params as GLPI's `BarcodeManager`, rendered as high-res PNG via GD (10px/module, 300 DPI)
 - **PDF delivery**: Ephemeral token system — PDF exists only during download, auto-deleted after
 - **GLPI 11 compatibility**: Respects Symfony's `LegacyFileLoadController` buffer (no `ob_end_clean`, no `exit`)
-- **Database**: Single config table `glpi_plugin_qrcodelabel_configs`
+- **Database**: `glpi_plugin_qrcodelabel_configs` (global settings) + `glpi_plugin_qrcodelabel_printprofiles` (print profiles)
 - **Rights**: `plugin_qrcodelabel_label` (CREATE) + `plugin_qrcodelabel_config` (UPDATE)
 - **Security**: Input whitelist validation, logo upload verification (`getimagesize`), no raw POST to DB
 - **PHP**: 7.4 – 8.4

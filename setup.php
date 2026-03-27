@@ -35,7 +35,7 @@
    ------------------------------------------------------------------------
  */
 
-define("PLUGIN_QRCODELABEL_VERSION", "1.0.0");
+define("PLUGIN_QRCODELABEL_VERSION", "1.1.0");
 
 // Minimal GLPI version, inclusive
 define('PLUGIN_QRCODELABEL_MIN_GLPI', '10.0.0');
