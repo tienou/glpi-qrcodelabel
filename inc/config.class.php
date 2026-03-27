@@ -189,22 +189,62 @@ class PluginQrcodelabelConfig extends CommonDBTM {
          'Landscape' => __('Landscape', 'qrcodelabel'),
       ];
 
-      $profiles = PluginQrcodelabelPrintprofile::getProfiles();
       global $DB;
       $iterator = $DB->request([
          'FROM'  => 'glpi_plugin_qrcodelabel_printprofiles',
          'ORDER' => 'name ASC',
       ]);
+      $tapeSizeOptions = ['25mm' => '25 mm', '36mm' => '36 mm', '50mm' => '50 mm'];
+      $pageSizeOptions = ['A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal'];
+
       foreach ($iterator as $row) {
+         echo "<form method='post' action='" . $webDir . "/front/config.form.php'>";
+         echo "<input type='hidden' name='update_profile' value='1'>";
+         echo "<input type='hidden' name='profile_id' value='" . (int)$row['id'] . "'>";
          echo "<tr class='tab_bg_1'>";
-         echo "<td>" . htmlspecialchars($row['name']) . "</td>";
-         echo "<td>" . htmlspecialchars($row['tape_size']) . "</td>";
-         echo "<td>" . ($colorModeLabels[$row['color_mode']] ?? $row['color_mode']) . "</td>";
-         echo "<td>" . ($row['show_date'] ? __('Yes') : __('No')) . "</td>";
-         echo "<td>" . htmlspecialchars($row['page_size']) . "</td>";
-         echo "<td>" . ($orientationLabels[$row['orientation']] ?? $row['orientation']) . "</td>";
-         echo "<td>" . ($row['is_default'] ? '<b>' . __('Yes') . '</b>' : __('No')) . "</td>";
+
+         // Name (editable)
+         echo "<td><input type='text' name='profile_name' value='"
+            . htmlspecialchars($row['name']) . "' size='15' required></td>";
+
+         // Tape size
          echo "<td>";
+         Dropdown::showFromArray('profile_tape_size', $tapeSizeOptions,
+            ['value' => $row['tape_size'], 'width' => '100']);
+         echo "</td>";
+
+         // Color mode
+         echo "<td>";
+         Dropdown::showFromArray('profile_color_mode', $colorModeLabels,
+            ['value' => $row['color_mode'], 'width' => '150']);
+         echo "</td>";
+
+         // Show date
+         echo "<td>";
+         Dropdown::showYesNo('profile_show_date', $row['show_date'], -1, ['width' => '80']);
+         echo "</td>";
+
+         // Page size
+         echo "<td>";
+         Dropdown::showFromArray('profile_page_size', $pageSizeOptions,
+            ['value' => $row['page_size'], 'width' => '100']);
+         echo "</td>";
+
+         // Orientation
+         echo "<td>";
+         Dropdown::showFromArray('profile_orientation', $orientationLabels,
+            ['value' => $row['orientation'], 'width' => '100']);
+         echo "</td>";
+
+         // Is default
+         echo "<td>";
+         Dropdown::showYesNo('profile_is_default', $row['is_default'], -1, ['width' => '80']);
+         echo "</td>";
+
+         // Actions: Save + Delete
+         echo "<td>";
+         echo "<input type='submit' value='" . __('Save') . "' class='submit'> ";
+         echo "</form>";
          echo "<form method='post' action='" . $webDir . "/front/config.form.php' style='display:inline'>";
          echo "<input type='hidden' name='delete_profile' value='1'>";
          echo "<input type='hidden' name='profile_id' value='" . (int)$row['id'] . "'>";

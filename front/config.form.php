@@ -95,6 +95,42 @@ if (isset($_POST['dropLogo'])) {
       Session::addMessageAfterRedirect(__('Print profile added.', 'qrcodelabel'));
    }
 
+} else if (isset($_POST['update_profile'])) {
+   // Update an existing print profile
+   $profileId   = (int)($_POST['profile_id'] ?? 0);
+   $profileName = mb_substr(trim($_POST['profile_name'] ?? ''), 0, 100);
+
+   if ($profileId > 0 && $profileName !== '') {
+      $pTapeSize    = in_array($_POST['profile_tape_size'] ?? '', $validTapeSizes, true)
+         ? $_POST['profile_tape_size'] : '36mm';
+      $pColorMode   = in_array($_POST['profile_color_mode'] ?? '', $validColorModes, true)
+         ? $_POST['profile_color_mode'] : 'bw';
+      $pShowDate    = (int)(bool)($_POST['profile_show_date'] ?? 1);
+      $pPageSize    = in_array($_POST['profile_page_size'] ?? '', $validPageSizes, true)
+         ? $_POST['profile_page_size'] : 'A4';
+      $pOrientation = in_array($_POST['profile_orientation'] ?? '', $validOrientations, true)
+         ? $_POST['profile_orientation'] : 'Portrait';
+      $pIsDefault   = (int)(bool)($_POST['profile_is_default'] ?? 0);
+
+      if ($pIsDefault) {
+         global $DB;
+         $DB->update('glpi_plugin_qrcodelabel_printprofiles', ['is_default' => 0], [true]);
+      }
+
+      $profile = new PluginQrcodelabelPrintprofile();
+      $profile->update([
+         'id'          => $profileId,
+         'name'        => $profileName,
+         'tape_size'   => $pTapeSize,
+         'color_mode'  => $pColorMode,
+         'show_date'   => $pShowDate,
+         'page_size'   => $pPageSize,
+         'orientation' => $pOrientation,
+         'is_default'  => $pIsDefault,
+      ]);
+      Session::addMessageAfterRedirect(__('Print profile updated.', 'qrcodelabel'));
+   }
+
 } else if (isset($_POST['delete_profile'])) {
    // Delete a print profile
    $profileId = (int)($_POST['profile_id'] ?? 0);
