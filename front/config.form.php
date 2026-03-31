@@ -79,7 +79,7 @@ if (isset($_POST['dropLogo'])) {
       // If setting as default, unset all others first
       if ($pIsDefault) {
          global $DB;
-         $DB->update('glpi_plugin_qrcodelabel_printprofiles', ['is_default' => 0], [true]);
+         $DB->update('glpi_plugin_qrcodelabel_printprofiles', ['is_default' => 0], ['is_default' => 1]);
       }
 
       $profile = new PluginQrcodelabelPrintprofile();
@@ -114,7 +114,7 @@ if (isset($_POST['dropLogo'])) {
 
       if ($pIsDefault) {
          global $DB;
-         $DB->update('glpi_plugin_qrcodelabel_printprofiles', ['is_default' => 0], [true]);
+         $DB->update('glpi_plugin_qrcodelabel_printprofiles', ['is_default' => 0], ['is_default' => 1]);
       }
 
       $profile = new PluginQrcodelabelPrintprofile();
