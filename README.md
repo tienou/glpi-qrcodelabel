@@ -1,5 +1,9 @@
 # QR Code Label — GLPI Plugin
 
+[![GLPI Version](https://img.shields.io/badge/GLPI-10.0%20%7C%2011.0-blue)](https://glpi-project.org/)
+[![PHP Version](https://img.shields.io/badge/PHP-7.4%E2%80%938.4-8892BF)](https://php.net/)
+[![License](https://img.shields.io/badge/License-AGPL%20v3-green)](LICENSE)
+
 Generate rich inventory labels with QR codes directly from GLPI. Designed for Brother label printers (PT-P950NW, PT-P910BT, etc.) and compatible with any printer via PDF output.
 
 > Plugin GLPI pour générer des étiquettes d'inventaire avec QR codes. Compatible imprimantes Brother et export PDF.
@@ -121,14 +125,9 @@ After enabling the plugin:
 - **Security**: Input whitelist validation, logo upload verification (`getimagesize`), no raw POST to DB
 - **PHP**: 7.4 – 8.4
 
-## Submitting to GLPI Marketplace
+## Contributing
 
-To make this plugin available on GLPI Cloud:
-
-1. Create a release on GitHub with a `.zip` or `.tar.bz2` archive
-2. Contact GLPI support to request marketplace validation
-3. Provide: plugin name, GitHub URL, version number
-4. The GLPI team will review and publish the plugin
+Contributions are welcome! Please open an issue or submit a pull request on [GitHub](https://github.com/tienou/glpi-qrcodelabel).
 
 ## License
 

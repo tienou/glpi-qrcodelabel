@@ -108,7 +108,38 @@ function plugin_version_qrcodelabel() {
          'glpi' => [
             'min' => PLUGIN_QRCODELABEL_MIN_GLPI,
             'max' => PLUGIN_QRCODELABEL_MAX_GLPI,
-         ]
+         ],
+         'php' => [
+            'min' => '7.4',
+            'exts' => [
+               'gd' => [
+                  'required' => true,
+               ],
+            ],
+         ],
       ]
    ];
+}
+
+/**
+ * Check prerequisites before install.
+ *
+ * @return boolean
+ */
+function plugin_qrcodelabel_check_prerequisites() {
+   if (!extension_loaded('gd')) {
+      echo __('GD extension is required for QR code and logo image processing.', 'qrcodelabel');
+      return false;
+   }
+   return true;
+}
+
+/**
+ * Check configuration process for plugin.
+ *
+ * @param boolean $verbose Enable verbosity. Default to false
+ * @return boolean
+ */
+function plugin_qrcodelabel_check_config($verbose = false) {
+   return true;
 }
