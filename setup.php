@@ -35,7 +35,13 @@
    ------------------------------------------------------------------------
  */
 
-define("PLUGIN_QRCODELABEL_VERSION", "1.1.1");
+use Glpi\Plugin\Hooks;
+use GlpiPlugin\Qrcodelabel\Config;
+use GlpiPlugin\Qrcodelabel\Label;
+use GlpiPlugin\Qrcodelabel\Profile;
+use GlpiPlugin\Qrcodelabel\Printprofile;
+
+define("PLUGIN_QRCODELABEL_VERSION", "1.2.0");
 
 // Minimal GLPI version, inclusive
 define('PLUGIN_QRCODELABEL_MIN_GLPI', '10.0.0');
@@ -59,34 +65,17 @@ function plugin_init_qrcodelabel() {
 
    $PLUGIN_HOOKS['csrf_compliant']['qrcodelabel'] = true;
 
-   // GLPI 11: Plugin::registerClass() was removed.
-   // Classes in inc/ are autoloaded by GLPI's built-in classloader (naming convention).
-   if (method_exists('Plugin', 'registerClass')) {
-      // GLPI 10.x
-      Plugin::registerClass('PluginQrcodelabelProfile', ['addtabon' => ['Profile']]);
-      Plugin::registerClass('PluginQrcodelabelLabel', [
-         'addtabon' => PLUGIN_QRCODELABEL_ITEMTYPES,
-      ]);
-      Plugin::registerClass('PluginQrcodelabelConfig');
-   } else {
-      // GLPI 11+ — ensure class files are loaded for tab/menu discovery
-      include_once(Plugin::getPhpDir('qrcodelabel') . '/inc/profile.class.php');
-      include_once(Plugin::getPhpDir('qrcodelabel') . '/inc/label.class.php');
-      include_once(Plugin::getPhpDir('qrcodelabel') . '/inc/config.class.php');
-      include_once(Plugin::getPhpDir('qrcodelabel') . '/inc/printprofile.class.php');
-   }
-
    if (Session::haveRight('plugin_qrcodelabel_label', CREATE)
          || Session::haveRight('plugin_qrcodelabel_config', UPDATE)) {
 
-      $PLUGIN_HOOKS['pre_item_purge']['qrcodelabel']
-         = ['Profile' => ['PluginQrcodelabelProfile', 'cleanProfiles']];
+      $PLUGIN_HOOKS[Hooks::PRE_ITEM_PURGE]['qrcodelabel']
+         = ['Profile' => [Profile::class, 'cleanProfiles']];
 
       // Massive Action
       $PLUGIN_HOOKS['use_massive_action']['qrcodelabel'] = 1;
 
-      // Menu registration — works on both GLPI 10 and 11
-      $PLUGIN_HOOKS['menu_toadd']['qrcodelabel'] = ['tools' => 'PluginQrcodelabelLabel'];
+      // Menu registration
+      $PLUGIN_HOOKS['menu_toadd']['qrcodelabel'] = ['tools' => Label::class];
       $PLUGIN_HOOKS['helpdesk_menu_entry']['qrcodelabel'] = false;
    }
 

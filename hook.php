@@ -9,6 +9,10 @@
    ------------------------------------------------------------------------
  */
 
+use GlpiPlugin\Qrcodelabel\Label;
+use GlpiPlugin\Qrcodelabel\Profile;
+use GlpiPlugin\Qrcodelabel\Printprofile;
+
 /**
  * Define Massive Actions for this plugin.
  *
@@ -16,7 +20,7 @@
  */
 function plugin_qrcodelabel_MassiveActions($itemtype) {
 
-   $action = 'PluginQrcodelabelLabel' . MassiveAction::CLASS_ACTION_SEPARATOR . 'GenerateLabels';
+   $action = Label::class . MassiveAction::CLASS_ACTION_SEPARATOR . 'GenerateLabels';
    $label  = '<i class="fas fa-qrcode"></i> '
            . __('QR Code Label', 'qrcodelabel') . ' - '
            . __('Print QR labels', 'qrcodelabel');
@@ -45,20 +49,23 @@ function plugin_qrcodelabel_install() {
 
    // ── Table: glpi_plugin_qrcodelabel_configs ────────────────────────────────
    if (!$DB->tableExists("glpi_plugin_qrcodelabel_configs")) {
-      $DB->doQuery("CREATE TABLE `glpi_plugin_qrcodelabel_configs` (
-         `id`            INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-         `printer_type`  VARCHAR(20)   NOT NULL DEFAULT 'sheet',
-         `tape_size`     VARCHAR(10)   NOT NULL DEFAULT '36mm',
-         `color_mode`    VARCHAR(20)   NOT NULL DEFAULT 'bw',
-         `show_date`     TINYINT(1)    NOT NULL DEFAULT 1,
-         `page_size`     VARCHAR(10)   NOT NULL DEFAULT 'A4',
-         `orientation`   VARCHAR(10)   NOT NULL DEFAULT 'Portrait',
-         `owner_text`    VARCHAR(255)  NOT NULL DEFAULT '',
-         PRIMARY KEY (`id`)
-      ) ENGINE=InnoDB
-        DEFAULT CHARSET={$default_charset}
-        COLLATE={$default_collation}
-        ROW_FORMAT=DYNAMIC");
+      $DB->doQueryOrDie(
+         "CREATE TABLE `glpi_plugin_qrcodelabel_configs` (
+            `id`            INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+            `printer_type`  VARCHAR(20)   NOT NULL DEFAULT 'sheet',
+            `tape_size`     VARCHAR(10)   NOT NULL DEFAULT '36mm',
+            `color_mode`    VARCHAR(20)   NOT NULL DEFAULT 'bw',
+            `show_date`     TINYINT(1)    NOT NULL DEFAULT 1,
+            `page_size`     VARCHAR(10)   NOT NULL DEFAULT 'A4',
+            `orientation`   VARCHAR(10)   NOT NULL DEFAULT 'Portrait',
+            `owner_text`    VARCHAR(255)  NOT NULL DEFAULT '',
+            PRIMARY KEY (`id`)
+         ) ENGINE=InnoDB
+           DEFAULT CHARSET={$default_charset}
+           COLLATE={$default_collation}
+           ROW_FORMAT=DYNAMIC",
+         $DB->error()
+      );
 
       $DB->insert("glpi_plugin_qrcodelabel_configs", [
          'id'            => 1,
@@ -74,20 +81,23 @@ function plugin_qrcodelabel_install() {
 
    // ── Table: glpi_plugin_qrcodelabel_printprofiles ────────────────────────
    if (!$DB->tableExists("glpi_plugin_qrcodelabel_printprofiles")) {
-      $DB->doQuery("CREATE TABLE `glpi_plugin_qrcodelabel_printprofiles` (
-         `id`            INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-         `name`          VARCHAR(100)  NOT NULL DEFAULT '',
-         `tape_size`     VARCHAR(10)   NOT NULL DEFAULT '36mm',
-         `color_mode`    VARCHAR(20)   NOT NULL DEFAULT 'bw',
-         `show_date`     TINYINT(1)    NOT NULL DEFAULT 1,
-         `page_size`     VARCHAR(10)   NOT NULL DEFAULT 'A4',
-         `orientation`   VARCHAR(10)   NOT NULL DEFAULT 'Portrait',
-         `is_default`    TINYINT(1)    NOT NULL DEFAULT 0,
-         PRIMARY KEY (`id`)
-      ) ENGINE=InnoDB
-        DEFAULT CHARSET={$default_charset}
-        COLLATE={$default_collation}
-        ROW_FORMAT=DYNAMIC");
+      $DB->doQueryOrDie(
+         "CREATE TABLE `glpi_plugin_qrcodelabel_printprofiles` (
+            `id`            INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+            `name`          VARCHAR(100)  NOT NULL DEFAULT '',
+            `tape_size`     VARCHAR(10)   NOT NULL DEFAULT '36mm',
+            `color_mode`    VARCHAR(20)   NOT NULL DEFAULT 'bw',
+            `show_date`     TINYINT(1)    NOT NULL DEFAULT 1,
+            `page_size`     VARCHAR(10)   NOT NULL DEFAULT 'A4',
+            `orientation`   VARCHAR(10)   NOT NULL DEFAULT 'Portrait',
+            `is_default`    TINYINT(1)    NOT NULL DEFAULT 0,
+            PRIMARY KEY (`id`)
+         ) ENGINE=InnoDB
+           DEFAULT CHARSET={$default_charset}
+           COLLATE={$default_collation}
+           ROW_FORMAT=DYNAMIC",
+         $DB->error()
+      );
 
       $DB->insert("glpi_plugin_qrcodelabel_printprofiles", [
          'name'        => 'Standard',
@@ -101,8 +111,7 @@ function plugin_qrcodelabel_install() {
    }
 
    // ── Profile rights ────────────────────────────────────────────────────────
-   include_once Plugin::getPhpDir('qrcodelabel') . '/inc/profile.class.php';
-   PluginQrcodelabelProfile::initProfile();
+   Profile::initProfile();
 
    return true;
 }
@@ -126,8 +135,7 @@ function plugin_qrcodelabel_uninstall() {
 
    $migration->executeMigration();
 
-   include_once Plugin::getPhpDir('qrcodelabel') . '/inc/profile.class.php';
-   PluginQrcodelabelProfile::removeRights();
+   Profile::removeRights();
 
    return true;
 }

@@ -9,6 +9,9 @@
    ------------------------------------------------------------------------
  */
 
+use GlpiPlugin\Qrcodelabel\Config;
+use GlpiPlugin\Qrcodelabel\Printprofile;
+
 // GLPI 11: bootstrap is handled by Symfony LegacyFileLoadController.
 
 Session::checkRight("config", UPDATE);
@@ -53,11 +56,6 @@ if (isset($_POST['dropLogo'])) {
 
 } else if (isset($_POST['add_profile'])) {
    // Add a new print profile
-   $validTapeSizesP    = ['25mm', '36mm', '50mm'];
-   $validColorModesP   = ['bw', 'mono', 'color', 'inverse', 'inverse_mono'];
-   $validPageSizesP    = ['A4', 'A3', 'LETTER', 'LEGAL'];
-   $validOrientationsP = ['Portrait', 'Landscape'];
-
    $profileName = mb_substr(trim($_POST['profile_name'] ?? ''), 0, 100);
    if ($profileName === '') {
       Session::addMessageAfterRedirect(
@@ -65,14 +63,14 @@ if (isset($_POST['dropLogo'])) {
          false, ERROR
       );
    } else {
-      $pTapeSize    = in_array($_POST['profile_tape_size'] ?? '', $validTapeSizesP, true)
+      $pTapeSize    = in_array($_POST['profile_tape_size'] ?? '', $validTapeSizes, true)
          ? $_POST['profile_tape_size'] : '36mm';
-      $pColorMode   = in_array($_POST['profile_color_mode'] ?? '', $validColorModesP, true)
+      $pColorMode   = in_array($_POST['profile_color_mode'] ?? '', $validColorModes, true)
          ? $_POST['profile_color_mode'] : 'bw';
       $pShowDate    = (int)(bool)($_POST['profile_show_date'] ?? 1);
-      $pPageSize    = in_array($_POST['profile_page_size'] ?? '', $validPageSizesP, true)
+      $pPageSize    = in_array($_POST['profile_page_size'] ?? '', $validPageSizes, true)
          ? $_POST['profile_page_size'] : 'A4';
-      $pOrientation = in_array($_POST['profile_orientation'] ?? '', $validOrientationsP, true)
+      $pOrientation = in_array($_POST['profile_orientation'] ?? '', $validOrientations, true)
          ? $_POST['profile_orientation'] : 'Portrait';
       $pIsDefault   = (int)(bool)($_POST['profile_is_default'] ?? 0);
 
@@ -82,7 +80,7 @@ if (isset($_POST['dropLogo'])) {
          $DB->update('glpi_plugin_qrcodelabel_printprofiles', ['is_default' => 0], ['is_default' => 1]);
       }
 
-      $profile = new PluginQrcodelabelPrintprofile();
+      $profile = new Printprofile();
       $profile->add([
          'name'        => $profileName,
          'tape_size'   => $pTapeSize,
@@ -117,7 +115,7 @@ if (isset($_POST['dropLogo'])) {
          $DB->update('glpi_plugin_qrcodelabel_printprofiles', ['is_default' => 0], ['is_default' => 1]);
       }
 
-      $profile = new PluginQrcodelabelPrintprofile();
+      $profile = new Printprofile();
       $profile->update([
          'id'          => $profileId,
          'name'        => $profileName,
@@ -135,7 +133,7 @@ if (isset($_POST['dropLogo'])) {
    // Delete a print profile
    $profileId = (int)($_POST['profile_id'] ?? 0);
    if ($profileId > 0) {
-      $profile = new PluginQrcodelabelPrintprofile();
+      $profile = new Printprofile();
       if ($profile->getFromDB($profileId)) {
          $profile->delete(['id' => $profileId]);
          Session::addMessageAfterRedirect(__('Print profile deleted.', 'qrcodelabel'));
@@ -158,7 +156,7 @@ if (isset($_POST['dropLogo'])) {
    $ownerText = mb_substr(trim($_POST['owner_text'] ?? ''), 0, 255);
 
    // Save configuration
-   $config = new PluginQrcodelabelConfig();
+   $config = new Config();
    if (!$config->getFromDB(1)) {
       // Create if missing
       global $DB;

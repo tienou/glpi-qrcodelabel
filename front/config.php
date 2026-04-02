@@ -9,6 +9,8 @@
    ------------------------------------------------------------------------
  */
 
+use GlpiPlugin\Qrcodelabel\Config;
+
 // GLPI 11: bootstrap is handled by Symfony LegacyFileLoadController.
 
 Session::checkRight("config", UPDATE);
@@ -17,7 +19,7 @@ Plugin::load('qrcodelabel');
 
 Html::header(__('QR Code Label', 'qrcodelabel'), $_SERVER['PHP_SELF'], "config", "plugins");
 
-$config = new PluginQrcodelabelConfig();
+$config = new Config();
 $config->showConfigForm();
 
 Html::footer();

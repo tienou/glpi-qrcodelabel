@@ -23,6 +23,8 @@
      - header() is captured by Symfony via headers_list().
  */
 
+use GlpiPlugin\Qrcodelabel\Label;
+
 Session::checkLoginUser();
 
 // ── Resolve token ─────────────────────────────────────────────────────────
@@ -32,7 +34,7 @@ if (empty($_GET['token'])) {
 }
 
 $token   = (string)$_GET['token'];
-$absPath = PluginQrcodelabelLabel::resolveTmpPdf($token);
+$absPath = Label::resolveTmpPdf($token);
 
 if ($absPath === null) {
    Html::displayErrorAndDie(

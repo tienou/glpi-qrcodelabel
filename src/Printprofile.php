@@ -9,11 +9,11 @@
    ------------------------------------------------------------------------
  */
 
-if (!defined('GLPI_ROOT') && !defined('GLPI_DIR')) {
-   die("Sorry. You can't access directly to this file");
-}
+namespace GlpiPlugin\Qrcodelabel;
 
-class PluginQrcodelabelPrintprofile extends CommonDBTM {
+use CommonDBTM;
+
+class Printprofile extends CommonDBTM {
 
    static $table = 'glpi_plugin_qrcodelabel_printprofiles';
 

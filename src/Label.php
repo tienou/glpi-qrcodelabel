@@ -9,9 +9,16 @@
    ------------------------------------------------------------------------
  */
 
-if (!defined('GLPI_ROOT') && !defined('GLPI_DIR')) {
-   die("Sorry. You can't access directly to this file");
-}
+namespace GlpiPlugin\Qrcodelabel;
+
+use CommonDBTM;
+use CommonGLPI;
+use Dropdown;
+use Html;
+use Location;
+use MassiveAction;
+use Plugin;
+use Session;
 
 /**
  * Main class for QR Code Label generation using GLPI's native TCPDF.
@@ -22,7 +29,9 @@ if (!defined('GLPI_ROOT') && !defined('GLPI_DIR')) {
  * No external vendor dependencies — TCPDF ships with GLPI 10 and 11.
  * QR codes are rendered as native vector paths (write2DBarcode).
  */
-class PluginQrcodelabelLabel extends CommonDBTM {
+class Label extends CommonDBTM {
+
+   static $table = 'glpi_plugin_qrcodelabel_labels';
 
    static $rightname = 'plugin_qrcodelabel_label';
 
@@ -128,8 +137,8 @@ class PluginQrcodelabelLabel extends CommonDBTM {
     * Show the single-item label generation form on an asset tab.
     */
    static function showSingleItemForm(string $itemtype, int $items_id): void {
-      $profiles = PluginQrcodelabelPrintprofile::getProfiles();
-      $defaultProfile = PluginQrcodelabelPrintprofile::getDefault();
+      $profiles = Printprofile::getProfiles();
+      $defaultProfile = Printprofile::getDefault();
       $defaultId = $defaultProfile ? (int)$defaultProfile['id'] : 0;
 
       echo "<form name='qrcodelabel_form' method='post' action='"
@@ -175,8 +184,8 @@ class PluginQrcodelabelLabel extends CommonDBTM {
          return false;
       }
 
-      $profiles = PluginQrcodelabelPrintprofile::getProfiles();
-      $defaultProfile = PluginQrcodelabelPrintprofile::getDefault();
+      $profiles = Printprofile::getProfiles();
+      $defaultProfile = Printprofile::getDefault();
       $defaultId = $defaultProfile ? (int)$defaultProfile['id'] : 0;
 
       echo '<center><table>';
@@ -216,10 +225,10 @@ class PluginQrcodelabelLabel extends CommonDBTM {
 
       // Load print profile from DB
       $profileId = (int)($input['profile_id'] ?? 0);
-      $profile   = PluginQrcodelabelPrintprofile::getProfileById($profileId);
+      $profile   = Printprofile::getProfileById($profileId);
       if (!$profile) {
          // Fallback to default profile
-         $profile = PluginQrcodelabelPrintprofile::getDefault();
+         $profile = Printprofile::getDefault();
       }
       if (!$profile) {
          Session::addMessageAfterRedirect(
@@ -294,7 +303,7 @@ class PluginQrcodelabelLabel extends CommonDBTM {
          return;
       }
 
-      $config = PluginQrcodelabelConfig::getConfig();
+      $config = Config::getConfig();
 
       $pdfPath = self::printPDF($assets, [
          'tape_size'   => $tapeSize,

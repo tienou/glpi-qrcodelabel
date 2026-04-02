@@ -3,26 +3,34 @@
    <name>QR Code Label</name>
    <key>qrcodelabel</key>
    <state>stable</state>
+   <logo>https://raw.githubusercontent.com/tienou/glpi-qrcodelabel/refs/heads/main/qrcodelabel.png</logo>
    <description>
       <short>
          <fr><![CDATA[Génère des étiquettes d'inventaire avec QR codes pour imprimantes d'étiquettes]]></fr>
          <en><![CDATA[Generate inventory labels with QR codes for label printers]]></en>
       </short>
       <long>
-         <fr><![CDATA[Plugin GLPI pour générer des étiquettes d'inventaire au format PDF contenant : QR code (lien vers la fiche GLPI), nom de l'asset, type, numéro de série, localisation, date d'inventaire, logo entreprise et texte propriétaire. Compatible imprimantes Brother (rubans 25mm, 36mm, 50mm). 5 modes couleur : Noir & Blanc, Monochrome, Couleur, Inverse, Inverse Mono.]]></fr>
-         <en><![CDATA[GLPI plugin to generate PDF inventory labels containing: QR code (link to GLPI asset page), asset name, type, serial number, location, inventory date, company logo and owner text. Compatible with Brother label printers (25mm, 36mm, 50mm tape). 5 color modes: Black & White, Monochrome, Color, Inverse, Inverse Mono.]]></en>
+         <fr><![CDATA[Plugin GLPI pour générer des étiquettes d'inventaire au format PDF contenant : QR code (lien vers la fiche GLPI), nom de l'asset, type, numéro de série, localisation, date d'inventaire, logo entreprise et texte propriétaire. Compatible imprimantes Brother (rubans 25mm, 36mm, 50mm). 5 modes couleur : Noir & Blanc, Monochrome, Couleur, Inverse, Inverse Mono. Profils d'impression réutilisables. Impression unitaire ou en masse. Zéro dépendance externe.]]></fr>
+         <en><![CDATA[GLPI plugin to generate PDF inventory labels containing: QR code (link to GLPI asset page), asset name, type, serial number, location, inventory date, company logo and owner text. Compatible with Brother label printers (25mm, 36mm, 50mm tape). 5 color modes: Black & White, Monochrome, Color, Inverse, Inverse Mono. Reusable print profiles. Single-item or bulk generation. Zero external dependencies.]]></en>
       </long>
    </description>
    <homepage>https://github.com/tienou/glpi-qrcodelabel</homepage>
    <download>https://github.com/tienou/glpi-qrcodelabel/releases</download>
+   <issues>https://github.com/tienou/glpi-qrcodelabel/issues</issues>
+   <readme>https://raw.githubusercontent.com/tienou/glpi-qrcodelabel/refs/heads/main/README.md</readme>
    <authors>
       <author>Etienne Gaillard</author>
    </authors>
    <versions>
       <version>
-         <num>1.1.1</num>
+         <num>1.2.0</num>
          <compatibility>~10.0.0</compatibility>
+         <download_url>https://github.com/tienou/glpi-qrcodelabel/releases/download/v1.2.0/qrcodelabel-1.2.0.tar.bz2</download_url>
+      </version>
+      <version>
+         <num>1.2.0</num>
          <compatibility>~11.0.0</compatibility>
+         <download_url>https://github.com/tienou/glpi-qrcodelabel/releases/download/v1.2.0/qrcodelabel-1.2.0.tar.bz2</download_url>
       </version>
    </versions>
    <langs>
@@ -46,4 +54,6 @@
          <tag>PDF</tag>
       </en>
    </tags>
+   <screenshots>
+   </screenshots>
 </root>

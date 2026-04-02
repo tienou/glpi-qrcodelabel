@@ -12,6 +12,10 @@
    Receives POST with itemtype + items_id (single) or from massive action.
  */
 
+use GlpiPlugin\Qrcodelabel\Config;
+use GlpiPlugin\Qrcodelabel\Label;
+use GlpiPlugin\Qrcodelabel\Printprofile;
+
 // GLPI 11: bootstrap is handled by Symfony LegacyFileLoadController.
 
 Session::checkLoginUser();
@@ -25,10 +29,10 @@ $nbCopies  = max(1, min(50, (int)($_POST['nb_copies'] ?? 1)));
 
 // Load print profile from DB
 $profileId = (int)($_POST['profile_id'] ?? 0);
-$profile   = PluginQrcodelabelPrintprofile::getProfileById($profileId);
+$profile   = Printprofile::getProfileById($profileId);
 if (!$profile) {
    // Fallback to default profile
-   $profile = PluginQrcodelabelPrintprofile::getDefault();
+   $profile = Printprofile::getDefault();
 }
 if (!$profile) {
    Session::addMessageAfterRedirect(__('No print profile found.', 'qrcodelabel'), false, ERROR);
@@ -39,7 +43,7 @@ if (!$profile) {
 $tapeSize  = $profile['tape_size'];
 $colorMode = $profile['color_mode'];
 // owner_text comes from global config, not from the profile
-$config    = PluginQrcodelabelConfig::getConfig();
+$config    = Config::getConfig();
 $ownerText = trim($config['owner_text'] ?? '');
 
 if (!$itemtype || !$items_id) {
@@ -96,7 +100,7 @@ $assetData = [
 // Build array with N copies
 $assets = array_fill(0, $nbCopies, $assetData);
 
-$pdfPath = PluginQrcodelabelLabel::printPDF($assets, [
+$pdfPath = Label::printPDF($assets, [
    'tape_size'   => $tapeSize,
    'color_mode'  => $colorMode,
    'owner_text'  => $ownerText,
@@ -106,7 +110,7 @@ $pdfPath = PluginQrcodelabelLabel::printPDF($assets, [
 ]);
 
 if ($pdfPath) {
-   $token = PluginQrcodelabelLabel::registerTmpPdf($pdfPath);
+   $token = Label::registerTmpPdf($pdfPath);
    $msg   = "<a href='" . Plugin::getWebDir('qrcodelabel') . '/front/send.php?token=' . urlencode($token)
           . "' target='_blank' rel='noopener noreferrer'>"
           . __('Download QR labels', 'qrcodelabel') . "</a>";

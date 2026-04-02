@@ -9,7 +9,17 @@
    ------------------------------------------------------------------------
  */
 
-class PluginQrcodelabelProfile extends Profile {
+namespace GlpiPlugin\Qrcodelabel;
+
+use CommonGLPI;
+use Html;
+use Plugin;
+use ProfileRight;
+use Session;
+
+class Profile extends \Profile {
+
+   static $table = 'glpi_plugin_qrcodelabel_profiles';
 
    static $rightname = "config";
 
@@ -28,11 +38,11 @@ class PluginQrcodelabelProfile extends Profile {
    function showForm($ID, array $options = []) {
       echo "<div class='firstbloc'>";
       if (($canedit = Session::haveRightsOr(self::$rightname, [CREATE, UPDATE, PURGE]))) {
-         $profile = new Profile();
+         $profile = new \Profile();
          echo "<form method='post' action='" . $profile->getFormURL() . "'>";
       }
 
-      $profile = new Profile();
+      $profile = new \Profile();
       $profile->getFromDB($ID);
 
       $rights = $this->getAllRights();
@@ -87,7 +97,7 @@ class PluginQrcodelabelProfile extends Profile {
    }
 
    static function createFirstAccess($profiles_id) {
-      include_once(Plugin::getPhpDir('qrcodelabel') . "/inc/profile.class.php");
+      // PSR-4 autoloaded
       $profile = new self();
       foreach ($profile->getAllRights() as $right) {
          self::addDefaultProfileInfos($profiles_id,
