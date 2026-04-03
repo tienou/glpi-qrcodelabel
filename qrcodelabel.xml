@@ -3,7 +3,7 @@
    <name>QR Code Label</name>
    <key>qrcodelabel</key>
    <state>stable</state>
-   <logo>https://raw.githubusercontent.com/tienou/glpi-qrcodelabel/refs/heads/main/qrcodelabel.png</logo>
+   <logo>https://raw.githubusercontent.com/tienou/glpi-qrcodelabel/main/qrcodelabel.png</logo>
    <description>
       <short>
          <fr><![CDATA[Génère des étiquettes d'inventaire avec QR codes pour imprimantes d'étiquettes]]></fr>
@@ -17,7 +17,7 @@
    <homepage>https://github.com/tienou/glpi-qrcodelabel</homepage>
    <download>https://github.com/tienou/glpi-qrcodelabel/releases</download>
    <issues>https://github.com/tienou/glpi-qrcodelabel/issues</issues>
-   <readme>https://raw.githubusercontent.com/tienou/glpi-qrcodelabel/refs/heads/main/README.md</readme>
+   <readme>https://raw.githubusercontent.com/tienou/glpi-qrcodelabel/main/README.md</readme>
    <authors>
       <author>Etienne Gaillard</author>
    </authors>
