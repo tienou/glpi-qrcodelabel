@@ -3,7 +3,7 @@
    <name>QR Code Label</name>
    <key>qrcodelabel</key>
    <state>stable</state>
-   <logo>https://raw.githubusercontent.com/tienou/glpi-qrcodelabel/refs/heads/main/qrcodelabel.png</logo>
+   <logo>https://raw.githubusercontent.com/tienou/glpi-label-generator/refs/heads/main/qrcodelabel.png</logo>
    <description>
       <short>
          <fr><![CDATA[Génère des étiquettes d'inventaire avec QR codes pour imprimantes d'étiquettes]]></fr>
@@ -14,10 +14,10 @@
          <en><![CDATA[GLPI plugin to generate PDF inventory labels containing: QR code (link to GLPI asset page), asset name, type, serial number, location, inventory date, company logo and owner text. Compatible with Brother label printers (25mm, 36mm, 50mm tape). 5 color modes: Black & White, Monochrome, Color, Inverse, Inverse Mono. Reusable print profiles. Single-item or bulk generation. Zero external dependencies.]]></en>
       </long>
    </description>
-   <homepage>https://github.com/tienou/glpi-qrcodelabel</homepage>
-   <download>https://github.com/tienou/glpi-qrcodelabel/releases</download>
-   <issues>https://github.com/tienou/glpi-qrcodelabel/issues</issues>
-   <readme>https://raw.githubusercontent.com/tienou/glpi-qrcodelabel/refs/heads/main/README.md</readme>
+   <homepage>https://github.com/tienou/glpi-label-generator</homepage>
+   <download>https://github.com/tienou/glpi-label-generator/releases</download>
+   <issues>https://github.com/tienou/glpi-label-generator/issues</issues>
+   <readme>https://raw.githubusercontent.com/tienou/glpi-label-generator/refs/heads/main/README.md</readme>
    <authors>
       <author>Etienne Gaillard</author>
    </authors>
@@ -25,12 +25,12 @@
       <version>
          <num>1.2.1</num>
          <compatibility>~10.0.0</compatibility>
-         <download_url>https://github.com/tienou/glpi-qrcodelabel/releases/download/v1.2.0/qrcodelabel-1.2.1.tar.bz2</download_url>
+         <download_url>https://github.com/tienou/glpi-label-generator/releases/download/v1.2.1/qrcodelabel-1.2.1.tar.bz2</download_url>
       </version>
       <version>
          <num>1.2.1</num>
          <compatibility>~11.0.0</compatibility>
-         <download_url>https://github.com/tienou/glpi-qrcodelabel/releases/download/v1.2.0/qrcodelabel-1.2.1.tar.bz2</download_url>
+         <download_url>https://github.com/tienou/glpi-label-generator/releases/download/v1.2.1/qrcodelabel-1.2.1.tar.bz2</download_url>
       </version>
    </versions>
    <langs>
