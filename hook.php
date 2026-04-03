@@ -11,12 +11,9 @@
 
 use GlpiPlugin\Qrcodelabel\Label;
 use GlpiPlugin\Qrcodelabel\Profile;
-use GlpiPlugin\Qrcodelabel\Printprofile;
 
 /**
  * Define Massive Actions for this plugin.
- *
- * "Print QR Labels" is available on all supported hardware asset types.
  */
 function plugin_qrcodelabel_MassiveActions($itemtype) {
 
@@ -38,6 +35,10 @@ function plugin_qrcodelabel_MassiveActions($itemtype) {
  */
 function plugin_qrcodelabel_install() {
    global $DB;
+
+   // Ensure PSR-4 classes are loaded (autoloader may not be active during install)
+   $srcDir = Plugin::getPhpDir('qrcodelabel') . '/src';
+   require_once $srcDir . '/Profile.php';
 
    $default_charset   = DBConnection::getDefaultCharset();
    $default_collation = DBConnection::getDefaultCollation();
@@ -122,6 +123,10 @@ function plugin_qrcodelabel_install() {
  */
 function plugin_qrcodelabel_uninstall() {
    global $DB;
+
+   // Ensure PSR-4 classes are loaded (autoloader may not be active during uninstall)
+   $srcDir = Plugin::getPhpDir('qrcodelabel') . '/src';
+   require_once $srcDir . '/Profile.php';
 
    $migration = new Migration(PLUGIN_QRCODELABEL_VERSION);
 
