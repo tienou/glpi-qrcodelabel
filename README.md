@@ -74,7 +74,7 @@ Setup → Plugins → QR Code Label (gear icon) → set defaults, upload logo.
 
 ### Manual installation (self-hosted)
 
-1. Download the latest release from [Releases](https://github.com/tienou/glpi-label-generator/releases)
+1. Download the latest release from [Releases](https://github.com/tienou/glpi-qrcodelabel/releases)
 2. Extract the `qrcodelabel/` folder into your GLPI `marketplace/` directory
 3. Go to **Setup → Plugins** and click **Install** then **Enable**
 
@@ -127,7 +127,7 @@ After enabling the plugin:
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or submit a pull request on [GitHub](https://github.com/tienou/glpi-label-generator).
+Contributions are welcome! Please open an issue or submit a pull request on [GitHub](https://github.com/tienou/glpi-qrcodelabel).
 
 ## License
 

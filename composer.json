@@ -1,5 +1,5 @@
 {
-   "name": "tienou/glpi-label-generator",
+   "name": "tienou/glpi-qrcodelabel",
    "description": "GLPI plugin — Generate inventory labels with QR codes for label printers",
    "type": "glpi-plugin",
    "license": "AGPL-3.0-or-later",

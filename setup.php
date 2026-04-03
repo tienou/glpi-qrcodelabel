@@ -29,7 +29,7 @@
    @author    Etienne Gaillard
    @copyright Copyright (c) 2026 Etienne Gaillard
    @license   AGPL License 3.0 or (at your option) any later version
-   @link      https://github.com/tienou/glpi-label-generator
+   @link      https://github.com/tienou/glpi-qrcodelabel
    @since     2026
 
    ------------------------------------------------------------------------
@@ -89,7 +89,7 @@ function plugin_version_qrcodelabel() {
       'version'        => PLUGIN_QRCODELABEL_VERSION,
       'license'        => 'AGPLv3+',
       'author'         => 'Etienne Gaillard',
-      'homepage'       => 'https://github.com/tienou/glpi-label-generator',
+      'homepage'       => 'https://github.com/tienou/glpi-qrcodelabel',
       'requirements'   => [
          'glpi' => [
             'min' => PLUGIN_QRCODELABEL_MIN_GLPI,
