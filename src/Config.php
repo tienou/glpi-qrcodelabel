@@ -250,7 +250,7 @@ class Config extends CommonDBTM {
          // Actions: Save + Delete
          echo "<td>";
          echo "<input type='submit' value='" . __('Save') . "' class='submit'> ";
-         echo "</form>";
+         Html::closeForm();
          echo "<form method='post' action='" . $webDir . "/front/config.form.php' style='display:inline'>";
          echo "<input type='hidden' name='delete_profile' value='1'>";
          echo "<input type='hidden' name='profile_id' value='" . (int)$row['id'] . "'>";
