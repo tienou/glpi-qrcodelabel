@@ -162,6 +162,21 @@ class Config extends CommonDBTM {
     */
    private function showPrintProfilesSection(): void {
       $webDir = Plugin::getWebDir('qrcodelabel');
+      $actionUrl = $webDir . "/front/config.form.php";
+
+      $colorModeLabels = [
+         'bw'           => __('Black & White', 'qrcodelabel'),
+         'mono'         => __('Monochrome', 'qrcodelabel'),
+         'color'        => __('Color', 'qrcodelabel'),
+         'inverse'      => __('Inverse (white on black)', 'qrcodelabel'),
+         'inverse_mono' => __('Inverse Mono', 'qrcodelabel'),
+      ];
+      $orientationLabels = [
+         'Portrait'  => __('Portrait', 'qrcodelabel'),
+         'Landscape' => __('Landscape', 'qrcodelabel'),
+      ];
+      $tapeSizeOptions = ['25mm' => '25 mm', '36mm' => '36 mm', '50mm' => '50 mm'];
+      $pageSizeOptions = ['A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal'];
 
       echo "<br>";
       echo "<div class='center'>";
@@ -182,31 +197,20 @@ class Config extends CommonDBTM {
       echo "<th>" . __('Actions') . "</th>";
       echo "</tr>";
 
-      // List existing profiles
-      $colorModeLabels = [
-         'bw'           => __('Black & White', 'qrcodelabel'),
-         'mono'         => __('Monochrome', 'qrcodelabel'),
-         'color'        => __('Color', 'qrcodelabel'),
-         'inverse'      => __('Inverse (white on black)', 'qrcodelabel'),
-         'inverse_mono' => __('Inverse Mono', 'qrcodelabel'),
-      ];
-      $orientationLabels = [
-         'Portrait'  => __('Portrait', 'qrcodelabel'),
-         'Landscape' => __('Landscape', 'qrcodelabel'),
-      ];
+      echo "</table>";
 
+      // Each profile in its own form+table (forms cannot wrap <tr> inside a shared <table>)
       global $DB;
       $iterator = $DB->request([
          'FROM'  => 'glpi_plugin_qrcodelabel_printprofiles',
          'ORDER' => 'name ASC',
       ]);
-      $tapeSizeOptions = ['25mm' => '25 mm', '36mm' => '36 mm', '50mm' => '50 mm'];
-      $pageSizeOptions = ['A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal'];
 
       foreach ($iterator as $row) {
-         echo "<form method='post' action='" . $webDir . "/front/config.form.php'>";
+         echo "<form method='post' action='" . htmlspecialchars($actionUrl) . "'>";
          echo "<input type='hidden' name='update_profile' value='1'>";
          echo "<input type='hidden' name='profile_id' value='" . (int)$row['id'] . "'>";
+         echo "<table class='tab_cadre_fixe' style='margin-top:0; border-top:0;'>";
          echo "<tr class='tab_bg_1'>";
 
          // Name (editable)
@@ -247,26 +251,33 @@ class Config extends CommonDBTM {
          Dropdown::showYesNo('profile_is_default', $row['is_default'], -1, ['width' => '80']);
          echo "</td>";
 
-         // Actions: Save + Delete
+         // Actions: Save button
          echo "<td>";
          echo "<input type='submit' value='" . __('Save') . "' class='submit'> ";
+         echo "</td></tr></table>";
          Html::closeForm();
-         echo "<form method='post' action='" . $webDir . "/front/config.form.php' style='display:inline'>";
+
+         // Delete form (separate)
+         echo "<form method='post' action='" . htmlspecialchars($actionUrl) . "' style='display:inline'>";
          echo "<input type='hidden' name='delete_profile' value='1'>";
          echo "<input type='hidden' name='profile_id' value='" . (int)$row['id'] . "'>";
+         // Hidden delete submit, triggered from the save row via JS below
+         echo "<span id='delete_profile_" . (int)$row['id'] . "'>";
          echo "<input type='submit' value='" . __('Delete') . "' class='submit' "
+            . "style='margin-top:-30px; float:right; margin-right:10px;' "
             . "onclick=\"return confirm('" . __('Are you sure?') . "')\">";
-         echo Html::closeForm(false);
-         echo "</td></tr>";
+         echo "</span>";
+         Html::closeForm();
       }
 
       // Add new profile form
+      echo "<form method='post' action='" . htmlspecialchars($actionUrl) . "'>";
+      echo "<input type='hidden' name='add_profile' value='1'>";
+      echo "<table class='tab_cadre_fixe' style='margin-top:0; border-top:0;'>";
+
       echo "<tr><th colspan='8'>"
          . __('Add a print profile', 'qrcodelabel')
          . "</th></tr>";
-
-      echo "<form method='post' action='" . $webDir . "/front/config.form.php'>";
-      echo "<input type='hidden' name='add_profile' value='1'>";
 
       echo "<tr class='tab_bg_1'>";
 
@@ -320,9 +331,9 @@ class Config extends CommonDBTM {
       // Submit
       echo "<td><input type='submit' value='" . __('Add') . "' class='submit'></td>";
 
-      echo "</tr>";
-      echo Html::closeForm(false);
+      echo "</tr></table>";
+      Html::closeForm();
 
-      echo "</table></div>";
+      echo "</div>";
    }
 }
