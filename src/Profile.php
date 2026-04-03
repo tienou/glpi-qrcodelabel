@@ -11,14 +11,13 @@
 
 namespace GlpiPlugin\Qrcodelabel;
 
-use CommonDBTM;
 use CommonGLPI;
 use Html;
 use Profile as GlpiProfile;
 use ProfileRight;
 use Session;
 
-class Profile extends CommonDBTM {
+class Profile extends CommonGLPI {
 
    static $rightname = "profile";
 
