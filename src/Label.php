@@ -497,7 +497,7 @@ class Label extends CommonDBTM {
       $gapY    = 4;
 
       // ── Load TCPDF ────────────────────────────────────────────────────────
-      if (!class_exists('TCPDF')) {
+      if (!class_exists('\TCPDF')) {
          $tcpdfPath = GLPI_ROOT . '/vendor/tecnickcom/tcpdf/tcpdf.php';
          if (!file_exists($tcpdfPath)) {
             Session::addMessageAfterRedirect(
@@ -515,7 +515,7 @@ class Label extends CommonDBTM {
 
       // ── TCPDF init ────────────────────────────────────────────────────────
       $orientation = $isLandscape ? 'L' : 'P';
-      $pdf = new TCPDF($orientation, 'mm', $pageSize, true, 'UTF-8', false);
+      $pdf = new \TCPDF($orientation, 'mm', $pageSize, true, 'UTF-8', false);
       $pdf->SetCreator('GLPI QR Code Label plugin v' . PLUGIN_QRCODELABEL_VERSION);
       $pdf->SetAuthor('GLPI');
       $pdf->SetTitle(__('QR Code Labels', 'qrcodelabel'));
