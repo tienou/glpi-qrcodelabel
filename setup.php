@@ -35,11 +35,8 @@
    ------------------------------------------------------------------------
  */
 
-use Glpi\Plugin\Hooks;
-use GlpiPlugin\Qrcodelabel\Config;
 use GlpiPlugin\Qrcodelabel\Label;
 use GlpiPlugin\Qrcodelabel\Profile;
-use GlpiPlugin\Qrcodelabel\Printprofile;
 
 define("PLUGIN_QRCODELABEL_VERSION", "1.2.0");
 
@@ -68,7 +65,7 @@ function plugin_init_qrcodelabel() {
    if (Session::haveRight('plugin_qrcodelabel_label', CREATE)
          || Session::haveRight('plugin_qrcodelabel_config', UPDATE)) {
 
-      $PLUGIN_HOOKS[Hooks::PRE_ITEM_PURGE]['qrcodelabel']
+      $PLUGIN_HOOKS['pre_item_purge']['qrcodelabel']
          = ['Profile' => [Profile::class, 'cleanProfiles']];
 
       // Massive Action

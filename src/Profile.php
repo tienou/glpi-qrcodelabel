@@ -19,8 +19,6 @@ use Session;
 
 class Profile extends \Profile {
 
-   static $table = 'glpi_plugin_qrcodelabel_profiles';
-
    static $rightname = "config";
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {

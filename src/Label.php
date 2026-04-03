@@ -31,8 +31,6 @@ use Session;
  */
 class Label extends CommonDBTM {
 
-   static $table = 'glpi_plugin_qrcodelabel_labels';
-
    static $rightname = 'plugin_qrcodelabel_label';
 
    /**
