@@ -151,18 +151,17 @@ class Config extends CommonDBTM {
       echo "</tr>";
 
       echo "</table></div>";
-      Html::closeForm();
 
-      // ── Print Profiles section ──────────────────────────────────────────────
+      // ── Print Profiles section (inside the same form) ──────────────────────
       $this->showPrintProfilesSection();
+
+      Html::closeForm();
    }
 
    /**
     * Show the print profiles management section.
     */
    private function showPrintProfilesSection(): void {
-      $webDir = Plugin::getWebDir('qrcodelabel');
-      $actionUrl = $webDir . "/front/config.form.php";
 
       $colorModeLabels = [
          'bw'           => __('Black & White', 'qrcodelabel'),
@@ -178,7 +177,10 @@ class Config extends CommonDBTM {
       $tapeSizeOptions = ['25mm' => '25 mm', '36mm' => '36 mm', '50mm' => '50 mm'];
       $pageSizeOptions = ['A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal'];
 
-      echo "<br>";
+      // Hidden fields for profile actions (set by JavaScript before submit)
+      echo "<input type='hidden' name='profile_action' id='qrcl_profile_action' value=''>";
+      echo "<input type='hidden' name='profile_id' id='qrcl_profile_id' value=''>";
+
       echo "<div class='center'>";
       echo "<table class='tab_cadre_fixe'>";
       echo "<tr><th colspan='8'>"
@@ -197,9 +199,7 @@ class Config extends CommonDBTM {
       echo "<th>" . __('Actions') . "</th>";
       echo "</tr>";
 
-      echo "</table>";
-
-      // Each profile in its own form+table (forms cannot wrap <tr> inside a shared <table>)
+      // List existing profiles
       global $DB;
       $iterator = $DB->request([
          'FROM'  => 'glpi_plugin_qrcodelabel_printprofiles',
@@ -207,133 +207,101 @@ class Config extends CommonDBTM {
       ]);
 
       foreach ($iterator as $row) {
-         echo "<form method='post' action='" . htmlspecialchars($actionUrl) . "'>";
-         echo "<input type='hidden' name='update_profile' value='1'>";
-         echo "<input type='hidden' name='profile_id' value='" . (int)$row['id'] . "'>";
-         echo "<table class='tab_cadre_fixe' style='margin-top:0; border-top:0;'>";
+         $pid = (int)$row['id'];
          echo "<tr class='tab_bg_1'>";
 
-         // Name (editable)
-         echo "<td><input type='text' name='profile_name' value='"
-            . htmlspecialchars($row['name']) . "' size='15' required></td>";
+         // Name (editable) — use unique names per row
+         echo "<td><input type='text' name='pp_name_{$pid}' value='"
+            . htmlspecialchars($row['name']) . "' size='15'></td>";
 
          // Tape size
          echo "<td>";
-         Dropdown::showFromArray('profile_tape_size', $tapeSizeOptions,
+         Dropdown::showFromArray("pp_tape_{$pid}", $tapeSizeOptions,
             ['value' => $row['tape_size'], 'width' => '100']);
          echo "</td>";
 
          // Color mode
          echo "<td>";
-         Dropdown::showFromArray('profile_color_mode', $colorModeLabels,
+         Dropdown::showFromArray("pp_color_{$pid}", $colorModeLabels,
             ['value' => $row['color_mode'], 'width' => '150']);
          echo "</td>";
 
          // Show date
          echo "<td>";
-         Dropdown::showYesNo('profile_show_date', $row['show_date'], -1, ['width' => '80']);
+         Dropdown::showYesNo("pp_date_{$pid}", $row['show_date'], -1, ['width' => '80']);
          echo "</td>";
 
          // Page size
          echo "<td>";
-         Dropdown::showFromArray('profile_page_size', $pageSizeOptions,
+         Dropdown::showFromArray("pp_page_{$pid}", $pageSizeOptions,
             ['value' => $row['page_size'], 'width' => '100']);
          echo "</td>";
 
          // Orientation
          echo "<td>";
-         Dropdown::showFromArray('profile_orientation', $orientationLabels,
+         Dropdown::showFromArray("pp_orient_{$pid}", $orientationLabels,
             ['value' => $row['orientation'], 'width' => '100']);
          echo "</td>";
 
          // Is default
          echo "<td>";
-         Dropdown::showYesNo('profile_is_default', $row['is_default'], -1, ['width' => '80']);
+         Dropdown::showYesNo("pp_default_{$pid}", $row['is_default'], -1, ['width' => '80']);
          echo "</td>";
 
-         // Actions: Save button
+         // Actions: Save + Delete buttons
          echo "<td>";
-         echo "<input type='submit' value='" . __('Save') . "' class='submit'> ";
-         echo "</td></tr></table>";
-         Html::closeForm();
-
-         // Delete form (separate)
-         echo "<form method='post' action='" . htmlspecialchars($actionUrl) . "' style='display:inline'>";
-         echo "<input type='hidden' name='delete_profile' value='1'>";
-         echo "<input type='hidden' name='profile_id' value='" . (int)$row['id'] . "'>";
-         // Hidden delete submit, triggered from the save row via JS below
-         echo "<span id='delete_profile_" . (int)$row['id'] . "'>";
-         echo "<input type='submit' value='" . __('Delete') . "' class='submit' "
-            . "style='margin-top:-30px; float:right; margin-right:10px;' "
-            . "onclick=\"return confirm('" . __('Are you sure?') . "')\">";
-         echo "</span>";
-         Html::closeForm();
+         echo "<button type='submit' class='submit' onclick=\"document.getElementById('qrcl_profile_action').value='update';"
+            . "document.getElementById('qrcl_profile_id').value='{$pid}';\">"
+            . __('Save') . "</button> ";
+         echo "<button type='submit' class='submit' onclick=\"if(!confirm('" . __('Are you sure?') . "'))return false;"
+            . "document.getElementById('qrcl_profile_action').value='delete';"
+            . "document.getElementById('qrcl_profile_id').value='{$pid}';\">"
+            . __('Delete') . "</button>";
+         echo "</td></tr>";
       }
 
-      // Add new profile form
-      echo "<form method='post' action='" . htmlspecialchars($actionUrl) . "'>";
-      echo "<input type='hidden' name='add_profile' value='1'>";
-      echo "<table class='tab_cadre_fixe' style='margin-top:0; border-top:0;'>";
-
+      // Add new profile row
       echo "<tr><th colspan='8'>"
          . __('Add a print profile', 'qrcodelabel')
          . "</th></tr>";
 
       echo "<tr class='tab_bg_1'>";
 
-      // Name
-      echo "<td><input type='text' name='profile_name' value='' size='15' required "
+      echo "<td><input type='text' name='pp_name_new' value='' size='15' "
          . "placeholder='" . __('Name') . "'></td>";
 
-      // Tape size
       echo "<td>";
-      Dropdown::showFromArray('profile_tape_size', [
-         '25mm' => '25 mm', '36mm' => '36 mm', '50mm' => '50 mm',
-      ], ['value' => '36mm', 'width' => '100']);
+      Dropdown::showFromArray('pp_tape_new', $tapeSizeOptions,
+         ['value' => '36mm', 'width' => '100']);
       echo "</td>";
 
-      // Color mode
       echo "<td>";
-      Dropdown::showFromArray('profile_color_mode', [
-         'bw'           => __('Black & White', 'qrcodelabel'),
-         'mono'         => __('Monochrome', 'qrcodelabel'),
-         'color'        => __('Color', 'qrcodelabel'),
-         'inverse'      => __('Inverse (white on black)', 'qrcodelabel'),
-         'inverse_mono' => __('Inverse Mono', 'qrcodelabel'),
-      ], ['value' => 'bw', 'width' => '150']);
+      Dropdown::showFromArray('pp_color_new', $colorModeLabels,
+         ['value' => 'bw', 'width' => '150']);
       echo "</td>";
 
-      // Show date
       echo "<td>";
-      Dropdown::showYesNo('profile_show_date', 1, -1, ['width' => '80']);
+      Dropdown::showYesNo('pp_date_new', 1, -1, ['width' => '80']);
       echo "</td>";
 
-      // Page size
       echo "<td>";
-      Dropdown::showFromArray('profile_page_size', [
-         'A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal',
-      ], ['value' => 'A4', 'width' => '100']);
+      Dropdown::showFromArray('pp_page_new', $pageSizeOptions,
+         ['value' => 'A4', 'width' => '100']);
       echo "</td>";
 
-      // Orientation
       echo "<td>";
-      Dropdown::showFromArray('profile_orientation', [
-         'Portrait'  => __('Portrait', 'qrcodelabel'),
-         'Landscape' => __('Landscape', 'qrcodelabel'),
-      ], ['value' => 'Portrait', 'width' => '100']);
+      Dropdown::showFromArray('pp_orient_new', $orientationLabels,
+         ['value' => 'Portrait', 'width' => '100']);
       echo "</td>";
 
-      // Is default
       echo "<td>";
-      Dropdown::showYesNo('profile_is_default', 0, -1, ['width' => '80']);
+      Dropdown::showYesNo('pp_default_new', 0, -1, ['width' => '80']);
       echo "</td>";
 
-      // Submit
-      echo "<td><input type='submit' value='" . __('Add') . "' class='submit'></td>";
+      echo "<td><button type='submit' class='submit' onclick=\"document.getElementById('qrcl_profile_action').value='add';"
+         . "document.getElementById('qrcl_profile_id').value='new';\">"
+         . __('Add') . "</button></td>";
 
-      echo "</tr></table>";
-      Html::closeForm();
-
-      echo "</div>";
+      echo "</tr></table></div>";
    }
 }
