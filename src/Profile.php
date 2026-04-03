@@ -11,40 +11,50 @@
 
 namespace GlpiPlugin\Qrcodelabel;
 
+use CommonDBTM;
 use CommonGLPI;
 use Html;
-use Plugin;
+use Profile as GlpiProfile;
 use ProfileRight;
 use Session;
 
-class Profile extends \Profile {
+class Profile extends CommonDBTM {
 
-   static $rightname = "config";
+   static $rightname = "profile";
+
+   static function getTypeName($nb = 0) {
+      return __('QR Code Label', 'qrcodelabel');
+   }
 
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
-      if ($item->getID() > 0 && $item->fields['interface'] == 'central') {
-         return self::createTabEntry(__('QR Code Label', 'qrcodelabel'));
+      if ($item instanceof GlpiProfile && $item->getID() > 0) {
+         return self::createTabEntry(self::getTypeName());
       }
+      return '';
    }
 
    static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
-      $profile = new self();
-      $profile->showForm($item->getID());
+      if ($item instanceof GlpiProfile) {
+         $profile = new self();
+         $profile->showForm($item->getID());
+      }
       return true;
    }
 
    function showForm($ID, array $options = []) {
       echo "<div class='firstbloc'>";
-      if (($canedit = Session::haveRightsOr(self::$rightname, [CREATE, UPDATE, PURGE]))) {
-         $profile = new \Profile();
-         echo "<form method='post' action='" . $profile->getFormURL() . "'>";
+      $canedit = Session::haveRightsOr(self::$rightname, [CREATE, UPDATE, PURGE]);
+
+      if ($canedit) {
+         $glpiProfile = new GlpiProfile();
+         echo "<form method='post' action='" . $glpiProfile->getFormURL() . "'>";
       }
 
-      $profile = new \Profile();
-      $profile->getFromDB($ID);
+      $glpiProfile = new GlpiProfile();
+      $glpiProfile->getFromDB($ID);
 
-      $rights = $this->getAllRights();
-      $profile->displayRightsChoiceMatrix($rights, [
+      $rights = self::getAllRights();
+      $glpiProfile->displayRightsChoiceMatrix($rights, [
          'canedit'       => $canedit,
          'default_class' => 'tab_bg_2',
          'title'         => __('QR Code Label', 'qrcodelabel'),
@@ -64,7 +74,7 @@ class Profile extends \Profile {
       self::removeRights();
    }
 
-   function getAllRights() {
+   static function getAllRights() {
       return [
          [
             'rights' => [UPDATE => __('Update')],
@@ -95,17 +105,14 @@ class Profile extends \Profile {
    }
 
    static function createFirstAccess($profiles_id) {
-      // PSR-4 autoloaded
-      $profile = new self();
-      foreach ($profile->getAllRights() as $right) {
+      foreach (self::getAllRights() as $right) {
          self::addDefaultProfileInfos($profiles_id,
                                        [$right['field'] => ALLSTANDARDRIGHT]);
       }
    }
 
    static function removeRights() {
-      $profile = new self();
-      foreach ($profile->getAllRights() as $right) {
+      foreach (self::getAllRights() as $right) {
          if (isset($_SESSION['glpiactiveprofile'][$right['field']])) {
             unset($_SESSION['glpiactiveprofile'][$right['field']]);
          }
@@ -114,9 +121,7 @@ class Profile extends \Profile {
    }
 
    static function initProfile() {
-      $pfProfile = new self();
-      $profile   = new Profile();
-      $a_rights  = $pfProfile->getAllRights();
+      $a_rights = self::getAllRights();
 
       foreach ($a_rights as $data) {
          if (!countElementsInTable("glpi_profilerights", ['name' => $data['field']])) {
@@ -127,22 +132,22 @@ class Profile extends \Profile {
 
       // Grant all rights to current profile
       if (isset($_SESSION['glpiactiveprofile'])) {
-         $dataprofile       = [];
+         $glpiProfile = new GlpiProfile();
+         $dataprofile = [];
          $dataprofile['id'] = $_SESSION['glpiactiveprofile']['id'];
-         $profile->getFromDB($_SESSION['glpiactiveprofile']['id']);
+         $glpiProfile->getFromDB($_SESSION['glpiactiveprofile']['id']);
          foreach ($a_rights as $info) {
             if (is_array($info)
                   && (!empty($info['rights']))
                   && (!empty($info['label']))
                   && (!empty($info['field']))) {
-               $rights = $info['rights'];
-               foreach (array_keys($rights) as $right) {
+               foreach (array_keys($info['rights']) as $right) {
                   $dataprofile['_' . $info['field']][$right] = 1;
                   $_SESSION['glpiactiveprofile'][$info['field']] = $right;
                }
             }
          }
-         $profile->update($dataprofile);
+         $glpiProfile->update($dataprofile);
       }
    }
 }
