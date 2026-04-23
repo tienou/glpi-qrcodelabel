@@ -78,8 +78,11 @@ class Config extends CommonDBTM {
       echo "<tr class='tab_bg_1'>";
       echo "<td>" . __('Default tape size', 'qrcodelabel') . "</td><td>";
       Dropdown::showFromArray('tape_size', [
-         '25mm' => '25 mm', '36mm' => '36 mm', '50mm' => '50 mm',
-      ], ['value' => $config['tape_size'], 'width' => '120']);
+         '24mm' => '24 mm (Brother)',
+         '25mm' => '25 mm',
+         '36mm' => '36 mm',
+         '50mm' => '50 mm',
+      ], ['value' => $config['tape_size'], 'width' => '170']);
       echo "</td>";
 
       // ── Color mode ────────────────────────────────────────────────────────
@@ -174,7 +177,12 @@ class Config extends CommonDBTM {
          'Portrait'  => __('Portrait', 'qrcodelabel'),
          'Landscape' => __('Landscape', 'qrcodelabel'),
       ];
-      $tapeSizeOptions = ['25mm' => '25 mm', '36mm' => '36 mm', '50mm' => '50 mm'];
+      $tapeSizeOptions = [
+         '24mm' => '24 mm (Brother)',
+         '25mm' => '25 mm',
+         '36mm' => '36 mm',
+         '50mm' => '50 mm',
+      ];
       $pageSizeOptions = ['A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal'];
 
       // Hidden fields for profile actions (set by JavaScript before submit)

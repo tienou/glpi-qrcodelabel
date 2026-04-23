@@ -20,12 +20,15 @@ use GlpiPlugin\Qrcodelabel\Printprofile;
 
 Session::checkLoginUser();
 Session::checkRight('plugin_qrcodelabel_label', CREATE);
+Session::checkCSRF($_POST);
 
 global $CFG_GLPI;
 
 $itemtype  = $_POST['itemtype']  ?? '';
 $items_id  = (int)($_POST['items_id'] ?? 0);
 $nbCopies  = max(1, min(50, (int)($_POST['nb_copies'] ?? 1)));
+$format    = in_array($_POST['output_format'] ?? 'pdf', ['pdf', 'png', 'both'], true)
+   ? $_POST['output_format'] : 'pdf';
 
 // Load print profile from DB
 $profileId = (int)($_POST['profile_id'] ?? 0);
@@ -97,26 +100,21 @@ $assetData = [
    'url'         => $url,
 ];
 
-// Build array with N copies
+// Build array with N copies (PDF uses all copies; PNG only renders 1 — user re-prints via app)
 $assets = array_fill(0, $nbCopies, $assetData);
 
-$pdfPath = Label::printPDF($assets, [
+$params = [
    'tape_size'   => $tapeSize,
    'color_mode'  => $colorMode,
    'owner_text'  => $ownerText,
    'show_date'   => (bool)$profile['show_date'],
    'page_size'   => $profile['page_size'],
    'orientation' => $profile['orientation'],
-]);
+];
 
-if ($pdfPath) {
-   $token = Label::registerTmpPdf($pdfPath);
-   $msg   = "<a href='" . Plugin::getWebDir('qrcodelabel') . '/front/send.php?token=' . urlencode($token)
-          . "' target='_blank' rel='noopener noreferrer'>"
-          . __('Download QR labels', 'qrcodelabel') . "</a>";
-   Session::addMessageAfterRedirect($msg);
-} else {
-   Session::addMessageAfterRedirect(__('PDF generation failed.', 'qrcodelabel'), false, ERROR);
+$ok = Label::emitDownloadLinks($assets, $params, $format);
+if (!$ok) {
+   Session::addMessageAfterRedirect(__('Label generation failed.', 'qrcodelabel'), false, ERROR);
 }
 
 Html::back();

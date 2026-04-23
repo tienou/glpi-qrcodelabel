@@ -9,7 +9,16 @@
       }
    ],
    "require": {
-      "php": ">=7.4"
+      "php": ">=7.4",
+      "ext-gd": "*"
+   },
+   "suggest": {
+      "ext-zip": "Required for multi-asset PNG export (ZIP bundle)."
+   },
+   "autoload": {
+      "psr-4": {
+         "GlpiPlugin\\Qrcodelabel\\": "src/"
+      }
    },
    "minimum-stability": "stable"
 }

@@ -10,8 +10,8 @@
          <en><![CDATA[Generate inventory labels with QR codes for label printers]]></en>
       </short>
       <long>
-         <fr><![CDATA[Plugin GLPI pour générer des étiquettes d'inventaire au format PDF contenant : QR code (lien vers la fiche GLPI), nom de l'asset, type, numéro de série, localisation, date d'inventaire, logo entreprise et texte propriétaire. Compatible imprimantes Brother (rubans 25mm, 36mm, 50mm). 5 modes couleur : Noir & Blanc, Monochrome, Couleur, Inverse, Inverse Mono. Profils d'impression réutilisables. Impression unitaire ou en masse. Zéro dépendance externe.]]></fr>
-         <en><![CDATA[GLPI plugin to generate PDF inventory labels containing: QR code (link to GLPI asset page), asset name, type, serial number, location, inventory date, company logo and owner text. Compatible with Brother label printers (25mm, 36mm, 50mm tape). 5 color modes: Black & White, Monochrome, Color, Inverse, Inverse Mono. Reusable print profiles. Single-item or bulk generation. Zero external dependencies.]]></en>
+         <fr><![CDATA[Plugin GLPI pour générer des étiquettes d'inventaire en PDF ou PNG contenant : QR code (lien vers la fiche GLPI), nom de l'asset, type, numéro de série, localisation, date d'inventaire, logo entreprise et texte propriétaire. Sortie PDF (planches A4) ou PNG individuel pour imprimantes Brother P-Touch Cube (via iPrint&Label). Rubans 24mm, 25mm, 36mm, 50mm. 5 modes couleur : Noir & Blanc, Monochrome, Couleur, Inverse, Inverse Mono. Profils d'impression réutilisables. Impression unitaire ou en masse.]]></fr>
+         <en><![CDATA[GLPI plugin to generate PDF or PNG inventory labels containing: QR code (link to GLPI asset page), asset name, type, serial number, location, inventory date, company logo and owner text. PDF output (A4 label sheets) or individual PNG for Brother P-Touch Cube printers (via iPrint&Label). 24mm, 25mm, 36mm, 50mm tapes. 5 color modes: Black & White, Monochrome, Color, Inverse, Inverse Mono. Reusable print profiles. Single-item or bulk generation.]]></en>
       </long>
    </description>
    <homepage>https://github.com/tienou/glpi-qrcodelabel</homepage>
@@ -23,6 +23,16 @@
       <author>Etienne Gaillard</author>
    </authors>
    <versions>
+      <version>
+         <num>1.3.0</num>
+         <compatibility>~10.0.0</compatibility>
+         <download_url>https://github.com/tienou/glpi-qrcodelabel/releases/download/v1.3.0/qrcodelabel-1.3.0.tar.bz2</download_url>
+      </version>
+      <version>
+         <num>1.3.0</num>
+         <compatibility>~11.0.0</compatibility>
+         <download_url>https://github.com/tienou/glpi-qrcodelabel/releases/download/v1.3.0/qrcodelabel-1.3.0.tar.bz2</download_url>
+      </version>
       <version>
          <num>1.2.2</num>
          <compatibility>~10.0.0</compatibility>
@@ -56,6 +66,8 @@
          <tag>inventaire</tag>
          <tag>impression</tag>
          <tag>PDF</tag>
+         <tag>PNG</tag>
+         <tag>Brother</tag>
       </fr>
       <en>
          <tag>label</tag>
@@ -63,6 +75,8 @@
          <tag>inventory</tag>
          <tag>print</tag>
          <tag>PDF</tag>
+         <tag>PNG</tag>
+         <tag>Brother</tag>
       </en>
    </tags>
    <screenshots>

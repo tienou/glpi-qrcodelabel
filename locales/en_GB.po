@@ -170,3 +170,33 @@ msgstr "No print profile configured."
 
 msgid "Default"
 msgstr "Default"
+
+msgid "Output format"
+msgstr "Output format"
+
+msgid "PDF (label sheet)"
+msgstr "PDF (label sheet)"
+
+msgid "PNG (Brother P-Touch Cube)"
+msgstr "PNG (Brother P-Touch Cube)"
+
+msgid "Both (PDF + PNG)"
+msgstr "Both (PDF + PNG)"
+
+msgid "Download QR labels (PDF)"
+msgstr "Download QR labels (PDF)"
+
+msgid "Download QR label (PNG)"
+msgstr "Download QR label (PNG)"
+
+msgid "Download QR labels (ZIP of PNGs)"
+msgstr "Download QR labels (ZIP of PNGs)"
+
+msgid "Label generation failed."
+msgstr "Label generation failed."
+
+msgid "No TTF font available for PNG export. Install fonts-liberation or fonts-dejavu, or drop a TTF in plugins/qrcodelabel/fonts/."
+msgstr "No TTF font available for PNG export. Install fonts-liberation or fonts-dejavu, or drop a TTF in plugins/qrcodelabel/fonts/."
+
+msgid "PHP zip extension is required for multi-label PNG export."
+msgstr "PHP zip extension is required for multi-label PNG export."

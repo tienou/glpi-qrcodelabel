@@ -15,12 +15,13 @@ use GlpiPlugin\Qrcodelabel\Printprofile;
 // GLPI 11: bootstrap is handled by Symfony LegacyFileLoadController.
 
 Session::checkRight("config", UPDATE);
+Session::checkCSRF($_POST);
 
 $docDir = GLPI_PLUGIN_DOC_DIR . '/qrcodelabel';
 
 // Whitelists for input validation
 $validPrinterTypes = ['sheet', 'label'];
-$validTapeSizes    = ['25mm', '36mm', '50mm'];
+$validTapeSizes    = ['24mm', '25mm', '36mm', '50mm'];
 $validColorModes   = ['bw', 'mono', 'color', 'inverse', 'inverse_mono'];
 $validPageSizes    = ['A4', 'A3', 'LETTER', 'LEGAL'];
 $validOrientations = ['Portrait', 'Landscape'];

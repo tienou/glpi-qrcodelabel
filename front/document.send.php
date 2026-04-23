@@ -19,8 +19,13 @@ if (empty($_GET['file'])) {
    return;
 }
 
-$file = str_replace(['..', '\\'], ['', '/'], $_GET['file']);
-$path = GLPI_PLUGIN_DOC_DIR . '/' . $file;
+$file = (string)$_GET['file'];
+// Reject any traversal attempt up-front; realpath check below is a defence-in-depth.
+if (strpos($file, '..') !== false || strpos($file, "\0") !== false) {
+   Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);
+   return;
+}
+$path = GLPI_PLUGIN_DOC_DIR . '/' . ltrim(str_replace('\\', '/', $file), '/');
 
 if (!file_exists($path)) {
    Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);

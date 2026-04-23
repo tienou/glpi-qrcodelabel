@@ -34,7 +34,7 @@ if (empty($_GET['token'])) {
 }
 
 $token   = (string)$_GET['token'];
-$absPath = Label::resolveTmpPdf($token);
+$absPath = Label::resolveTmpFile($token);
 
 if ($absPath === null) {
    Html::displayErrorAndDie(
@@ -54,11 +54,23 @@ if ($realPath === false || $realTmp === false
    return;
 }
 
-// ── Download filename ─────────────────────────────────────────────────────
-$downloadName = 'qr_labels.pdf';
+// ── Content type + download filename (PDF / PNG / ZIP) ───────────────────
+$ext = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
+$contentTypes = [
+   'pdf' => 'application/pdf',
+   'png' => 'image/png',
+   'zip' => 'application/zip',
+];
+$contentType = $contentTypes[$ext] ?? 'application/octet-stream';
+
+$downloadName = 'qr_labels.' . $ext;
 $tmpBasename  = basename($realPath);
-if (preg_match('/qrcodelabel_\d+_([a-zA-Z0-9]+)_\d+\.pdf$/', $tmpBasename, $m)) {
-   $downloadName = 'qr_labels_' . $m[1] . '.pdf';
+// Filename patterns:
+//   qrcodelabel_<userid>_<tape>_<rand>.pdf
+//   qrcodelabel_<userid>_<tape>_<assetid>_<rand>.png
+//   qrcodelabel_<userid>_<tape>_<rand>.zip
+if (preg_match('/qrcodelabel_\d+_([a-zA-Z0-9]+)_.*\.(pdf|png|zip)$/', $tmpBasename, $m)) {
+   $downloadName = 'qr_labels_' . $m[1] . '.' . $m[2];
 }
 
 // ── Schedule deletion after response ──────────────────────────────────────
@@ -71,7 +83,7 @@ register_shutdown_function(static function () use ($realPath): void {
 $filesize = filesize($realPath);
 
 // ── Headers ───────────────────────────────────────────────────────────────
-header('Content-Type: application/pdf');
+header('Content-Type: ' . $contentType);
 header('Content-Length: ' . $filesize);
 header('Content-Disposition: attachment; filename="' . $downloadName . '"');
 header('Cache-Control: private, must-revalidate');
