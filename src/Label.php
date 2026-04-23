@@ -151,9 +151,9 @@ class Label extends CommonDBTM {
       echo "<input type='hidden' name='items_id' value='" . (int)$items_id . "'>";
 
       echo "<div class='center'><table class='tab_cadre'>";
-      echo "<tr><th colspan='4'>" . __('Generate QR label', 'qrcodelabel') . "</th></tr>";
+      echo "<tr><th colspan='2'>" . __('Generate QR label', 'qrcodelabel') . "</th></tr>";
 
-      // Print profile
+      // Print profile (sole selector; output format comes from global config)
       echo "<tr class='tab_bg_1'>";
       echo "<td>" . __('Print profile', 'qrcodelabel') . "</td><td>";
       if (empty($profiles)) {
@@ -164,28 +164,10 @@ class Label extends CommonDBTM {
             'width' => '200',
          ]);
       }
-      echo "</td>";
-
-      // Number of copies
-      echo "<td>" . __('Number of copies', 'qrcodelabel') . "</td><td>";
-      echo "<input type='text' name='nb_copies' value='1' size='5'>";
-      echo "</td></tr>";
-
-      // Output format (PDF / PNG / both)
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>" . __('Output format', 'qrcodelabel') . "</td><td colspan='3'>";
-      Dropdown::showFromArray('output_format', [
-         'pdf'  => __('PDF (label sheet)', 'qrcodelabel'),
-         'png'  => __('PNG (Brother P-Touch Cube)', 'qrcodelabel'),
-         'both' => __('Both (PDF + PNG)', 'qrcodelabel'),
-      ], [
-         'value' => 'pdf',
-         'width' => '250',
-      ]);
       echo "</td></tr>";
 
       // Generate button
-      echo "<tr><td class='tab_bg_1' colspan='4' align='center'>";
+      echo "<tr><td class='tab_bg_1' colspan='2' align='center'>";
       echo "<input type='submit' value='" . __('Generate', 'qrcodelabel') . "' class='submit'>";
       echo "</td></tr>";
 
@@ -216,23 +198,6 @@ class Label extends CommonDBTM {
             'width' => '200',
          ]);
       }
-      echo '</td></tr>';
-
-      // Skip N labels (specific to each print job, not part of profile)
-      echo '<tr><td>' . __('Skip first N labels', 'qrcodelabel') . ' : </td><td>';
-      Dropdown::showNumber('eliminate', ['width' => '100']);
-      echo '</td></tr>';
-
-      // Output format
-      echo '<tr><td>' . __('Output format', 'qrcodelabel') . ' : </td><td>';
-      Dropdown::showFromArray('output_format', [
-         'pdf'  => __('PDF (label sheet)', 'qrcodelabel'),
-         'png'  => __('PNG (Brother P-Touch Cube)', 'qrcodelabel'),
-         'both' => __('Both (PDF + PNG)', 'qrcodelabel'),
-      ], [
-         'value' => 'pdf',
-         'width' => '250',
-      ]);
       echo '</td></tr>';
 
       echo '</table></center><br/>';
@@ -272,17 +237,9 @@ class Label extends CommonDBTM {
       $showDate  = (int)$profile['show_date'];
       $pageSize  = $profile['page_size'];
       $orient    = $profile['orientation'];
-      $eliminate = max(0, min(100, (int)($input['eliminate'] ?? 0)));
-      $format    = in_array($input['output_format'] ?? 'pdf', ['pdf', 'png', 'both'], true)
-         ? $input['output_format'] : 'pdf';
 
       // Build asset data array
       $assets = [];
-
-      // Prepend blank slots (for partially used label sheets)
-      for ($i = 0; $i < $eliminate; $i++) {
-         $assets[] = null;
-      }
 
       foreach ($ids as $id) {
          if (!$item->getFromDB($id)) {
@@ -334,6 +291,8 @@ class Label extends CommonDBTM {
       }
 
       $config = Config::getConfig();
+      $format = in_array($config['output_format'] ?? 'pdf', ['pdf', 'png', 'both'], true)
+         ? $config['output_format'] : 'pdf';
       $params = [
          'tape_size'   => $tapeSize,
          'color_mode'  => $colorMode,
@@ -639,10 +598,8 @@ class Label extends CommonDBTM {
             $pdf->Rect($x, $y, $labelW, $labelH, 'F');
          }
 
-         // ── Border ─────────────────────────────────────────────────────────
-         $pdf->SetDrawColor($cm['border'][0], $cm['border'][1], $cm['border'][2]);
-         $pdf->SetLineWidth(0.5);
-         $pdf->Rect($x, $y, $labelW, $labelH, 'D');
+         // Outer border removed (v1.4.0): cleaner look, avoids clipping the
+         // logo when labels are printed flush-to-edge on Brother tapes.
 
          // ── QR code — GLPI native (BarcodeManager) ────────────────────────
          $qrX = $x + 3;
@@ -677,7 +634,7 @@ class Label extends CommonDBTM {
                   $logoH = $logoW / $ratio;
                }
                $logoX = $x + $labelW - $logoW - 2;
-               $logoY = $y + 1;
+               $logoY = $y + 3;
 
                // Process logo per color mode (same logic as Python exe)
                $useLogoPath = $logoPath;
@@ -758,7 +715,7 @@ class Label extends CommonDBTM {
          $hasOwner = ($ownerText !== '');
          $hasInv   = ($inv !== '');
          if (($hasOwner || $hasInv) && $tapeSize !== '25mm') {
-            $bottomY = $y + $labelH - 3 - ($ts['font_inv'] * 0.35);
+            $bottomY = $y + $labelH - 7 - ($ts['font_inv'] * 0.35);
             $pdf->SetFont('helvetica', '', $ts['font_inv']);
             $pdf->SetTextColor($cm['inv'][0], $cm['inv'][1], $cm['inv'][2]);
             if ($hasOwner && $hasInv) {
@@ -889,9 +846,7 @@ class Label extends CommonDBTM {
       $bg = imagecolorallocate($img, $cm['bg'][0], $cm['bg'][1], $cm['bg'][2]);
       imagefilledrectangle($img, 0, 0, $w, $h, $bg);
 
-      // ── Border (1px) ────────────────────────────────────────────────────
-      $border = imagecolorallocate($img, $cm['border'][0], $cm['border'][1], $cm['border'][2]);
-      imagerectangle($img, 0, 0, $w - 1, $h - 1, $border);
+      // Outer border removed (v1.4.0): cleaner look + no clipping of logo.
 
       // ── QR code ─────────────────────────────────────────────────────────
       $qrPx = (int)round($ts['qr_size'] * $mmToPx);
@@ -941,7 +896,7 @@ class Label extends CommonDBTM {
                   $logoH = (int)round($logoW / $ratio);
                }
                $logoX = $w - $logoW - (int)round(2 * $mmToPx);
-               $logoY = (int)round(1 * $mmToPx);
+               $logoY = (int)round(3 * $mmToPx);
                imagealphablending($img, true);
                imagecopyresampled($img, $logo, $logoX, $logoY, 0, 0,
                   $logoW, $logoH, $lOrigW, $lOrigH);
@@ -1010,7 +965,9 @@ class Label extends CommonDBTM {
       $hasOwner = ($ownerText !== '');
       $hasInv   = ($inv !== '');
       if (($hasOwner || $hasInv) && $tapeSize !== '25mm' && $tapeSize !== '24mm') {
-         $bottomY = $ts['label_h'] - 3;
+         // 7mm margin to stay clear of Brother tape unprintable bottom edge
+         // (descender of "p" / "g" must land inside printable area)
+         $bottomY = $ts['label_h'] - 7;
          $invStr  = 'Inv: ' . $inv;
          $col     = imagecolorallocate($img, $cm['inv'][0], $cm['inv'][1], $cm['inv'][2]);
          $fontSizePx = $ts['font_inv'] * $ptToPx;

@@ -27,6 +27,7 @@ $validTapeSizes    = ['24mm', '25mm', '36mm', '50mm'];
 $validColorModes   = ['bw', 'mono', 'color', 'inverse', 'inverse_mono'];
 $validPageSizes    = ['A4', 'A3', 'LETTER', 'LEGAL'];
 $validOrientations = ['Portrait', 'Landscape'];
+$validOutputFormats = ['pdf', 'png', 'both'];
 
 // ── Profile actions (single-form approach with pp_* fields) ────────────────
 $profileAction = $_POST['profile_action'] ?? '';
@@ -152,6 +153,8 @@ if ($profileAction === 'update' && $profileId > 0) {
    $orientation = in_array($_POST['orientation'] ?? '', $validOrientations, true)
       ? $_POST['orientation'] : 'Portrait';
    $ownerText = mb_substr(trim($_POST['owner_text'] ?? ''), 0, 255);
+   $outputFormat = in_array($_POST['output_format'] ?? '', $validOutputFormats, true)
+      ? $_POST['output_format'] : 'pdf';
 
    // Save configuration
    $config = new Config();
@@ -159,25 +162,27 @@ if ($profileAction === 'update' && $profileId > 0) {
       // Create if missing
       global $DB;
       $DB->insert('glpi_plugin_qrcodelabel_configs', [
-         'id'           => 1,
-         'printer_type' => $printerType,
-         'tape_size'    => $tapeSize,
-         'color_mode'   => $colorMode,
-         'show_date'    => $showDate,
-         'page_size'    => $pageSize,
-         'orientation'  => $orientation,
-         'owner_text'   => $ownerText,
+         'id'            => 1,
+         'printer_type'  => $printerType,
+         'tape_size'     => $tapeSize,
+         'color_mode'    => $colorMode,
+         'show_date'     => $showDate,
+         'page_size'     => $pageSize,
+         'orientation'   => $orientation,
+         'owner_text'    => $ownerText,
+         'output_format' => $outputFormat,
       ]);
    } else {
       $config->update([
-         'id'           => 1,
-         'printer_type' => $printerType,
-         'tape_size'    => $tapeSize,
-         'color_mode'   => $colorMode,
-         'show_date'    => $showDate,
-         'page_size'    => $pageSize,
-         'orientation'  => $orientation,
-         'owner_text'   => $ownerText,
+         'id'            => 1,
+         'printer_type'  => $printerType,
+         'tape_size'     => $tapeSize,
+         'color_mode'    => $colorMode,
+         'show_date'     => $showDate,
+         'page_size'     => $pageSize,
+         'orientation'   => $orientation,
+         'owner_text'    => $ownerText,
+         'output_format' => $outputFormat,
       ]);
    }
    Session::addMessageAfterRedirect(__('Configuration saved.', 'qrcodelabel'));

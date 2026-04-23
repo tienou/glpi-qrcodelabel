@@ -30,13 +30,14 @@ class Config extends CommonDBTM {
     */
    static function getConfig(): array {
       $defaults = [
-         'printer_type' => 'sheet',
-         'tape_size'    => '36mm',
-         'color_mode'   => 'bw',
-         'show_date'    => 1,
-         'page_size'    => 'A4',
-         'orientation'  => 'Portrait',
-         'owner_text'   => '',
+         'printer_type'  => 'sheet',
+         'tape_size'     => '36mm',
+         'color_mode'    => 'bw',
+         'show_date'     => 1,
+         'page_size'     => 'A4',
+         'orientation'   => 'Portrait',
+         'owner_text'    => '',
+         'output_format' => 'pdf',
       ];
 
       $config = new self();
@@ -80,7 +81,7 @@ class Config extends CommonDBTM {
       Dropdown::showFromArray('tape_size', [
          '24mm' => '24 mm (Brother)',
          '25mm' => '25 mm',
-         '36mm' => '36 mm',
+         '36mm' => '36 mm (Brother)',
          '50mm' => '50 mm',
       ], ['value' => $config['tape_size'], 'width' => '170']);
       echo "</td>";
@@ -124,6 +125,19 @@ class Config extends CommonDBTM {
       echo "<input type='text' name='owner_text' value='"
          . htmlspecialchars($config['owner_text'] ?? '', ENT_QUOTES) . "'"
          . " size='50' placeholder='" . __('e.g. Property of: My Company', 'qrcodelabel') . "'>";
+      echo "</td></tr>";
+
+      // ── Output format (PDF / PNG / both) ───────────────────────────────
+      echo "<tr class='tab_bg_1'>";
+      echo "<td>" . __('Output format', 'qrcodelabel') . "</td><td colspan='3'>";
+      Dropdown::showFromArray('output_format', [
+         'pdf'  => __('PDF (label sheet)', 'qrcodelabel'),
+         'png'  => __('PNG (Brother P-Touch Cube)', 'qrcodelabel'),
+         'both' => __('Both (PDF + PNG)', 'qrcodelabel'),
+      ], [
+         'value' => $config['output_format'] ?? 'pdf',
+         'width' => '300',
+      ]);
       echo "</td></tr>";
 
       // ── Save button ───────────────────────────────────────────────────────
@@ -180,7 +194,7 @@ class Config extends CommonDBTM {
       $tapeSizeOptions = [
          '24mm' => '24 mm (Brother)',
          '25mm' => '25 mm',
-         '36mm' => '36 mm',
+         '36mm' => '36 mm (Brother)',
          '50mm' => '50 mm',
       ];
       $pageSizeOptions = ['A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal'];
@@ -225,7 +239,7 @@ class Config extends CommonDBTM {
          // Tape size
          echo "<td>";
          Dropdown::showFromArray("pp_tape_{$pid}", $tapeSizeOptions,
-            ['value' => $row['tape_size'], 'width' => '100']);
+            ['value' => $row['tape_size'], 'width' => '170']);
          echo "</td>";
 
          // Color mode
@@ -280,7 +294,7 @@ class Config extends CommonDBTM {
 
       echo "<td>";
       Dropdown::showFromArray('pp_tape_new', $tapeSizeOptions,
-         ['value' => '36mm', 'width' => '100']);
+         ['value' => '36mm', 'width' => '170']);
       echo "</td>";
 
       echo "<td>";

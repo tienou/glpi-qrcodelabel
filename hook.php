@@ -60,6 +60,7 @@ function plugin_qrcodelabel_install() {
             `page_size`     VARCHAR(10)   NOT NULL DEFAULT 'A4',
             `orientation`   VARCHAR(10)   NOT NULL DEFAULT 'Portrait',
             `owner_text`    VARCHAR(255)  NOT NULL DEFAULT '',
+            `output_format` VARCHAR(10)   NOT NULL DEFAULT 'pdf',
             PRIMARY KEY (`id`)
          ) ENGINE=InnoDB
            DEFAULT CHARSET={$default_charset}
@@ -77,7 +78,18 @@ function plugin_qrcodelabel_install() {
          'page_size'     => 'A4',
          'orientation'   => 'Portrait',
          'owner_text'    => '',
+         'output_format' => 'pdf',
       ]);
+   } else {
+      // ── v1.4.0 migration: add output_format column to existing installs ──
+      $migration = new Migration(PLUGIN_QRCODELABEL_VERSION);
+      $migration->addField(
+         'glpi_plugin_qrcodelabel_configs',
+         'output_format',
+         "VARCHAR(10) NOT NULL DEFAULT 'pdf'",
+         ['after' => 'owner_text']
+      );
+      $migration->executeMigration();
    }
 
    // ── Table: glpi_plugin_qrcodelabel_printprofiles ────────────────────────

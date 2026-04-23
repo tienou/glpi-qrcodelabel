@@ -26,9 +26,6 @@ global $CFG_GLPI;
 
 $itemtype  = $_POST['itemtype']  ?? '';
 $items_id  = (int)($_POST['items_id'] ?? 0);
-$nbCopies  = max(1, min(50, (int)($_POST['nb_copies'] ?? 1)));
-$format    = in_array($_POST['output_format'] ?? 'pdf', ['pdf', 'png', 'both'], true)
-   ? $_POST['output_format'] : 'pdf';
 
 // Load print profile from DB
 $profileId = (int)($_POST['profile_id'] ?? 0);
@@ -45,9 +42,11 @@ if (!$profile) {
 
 $tapeSize  = $profile['tape_size'];
 $colorMode = $profile['color_mode'];
-// owner_text comes from global config, not from the profile
+// owner_text + output_format come from global config, not from the profile
 $config    = Config::getConfig();
 $ownerText = trim($config['owner_text'] ?? '');
+$format    = in_array($config['output_format'] ?? 'pdf', ['pdf', 'png', 'both'], true)
+   ? $config['output_format'] : 'pdf';
 
 if (!$itemtype || !$items_id) {
    Session::addMessageAfterRedirect(__('Invalid request.', 'qrcodelabel'), false, ERROR);
@@ -100,8 +99,8 @@ $assetData = [
    'url'         => $url,
 ];
 
-// Build array with N copies (PDF uses all copies; PNG only renders 1 — user re-prints via app)
-$assets = array_fill(0, $nbCopies, $assetData);
+// Always 1 label per click (users re-run for more copies)
+$assets = [$assetData];
 
 $params = [
    'tape_size'   => $tapeSize,
