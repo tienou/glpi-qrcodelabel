@@ -15,7 +15,9 @@ use GlpiPlugin\Qrcodelabel\Printprofile;
 // GLPI 11: bootstrap is handled by Symfony LegacyFileLoadController.
 
 Session::checkRight("config", UPDATE);
-Session::checkCSRF($_POST);
+// CSRF is auto-validated by GLPI because $PLUGIN_HOOKS['csrf_compliant'] is set;
+// calling Session::checkCSRF() here a second time consumes the single-use token
+// and breaks multi-button forms (saveConfig / dropLogo / uploadLogo / pp_*).
 
 $docDir = GLPI_PLUGIN_DOC_DIR . '/qrcodelabel';
 

@@ -20,7 +20,7 @@ use GlpiPlugin\Qrcodelabel\Printprofile;
 
 Session::checkLoginUser();
 Session::checkRight('plugin_qrcodelabel_label', CREATE);
-Session::checkCSRF($_POST);
+// CSRF is auto-validated by GLPI (plugin declares csrf_compliant=true).
 
 global $CFG_GLPI;
 
