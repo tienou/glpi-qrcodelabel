@@ -772,8 +772,11 @@ class Label extends CommonDBTM {
       $pluginFontDir = Plugin::getPhpDir('qrcodelabel') . '/fonts';
 
       $candidates = $bold ? [
+         // Bundled with the plugin (first priority — works everywhere):
+         $pluginFontDir . '/NotoSans-Bold.ttf',
          $pluginFontDir . '/LiberationSans-Bold.ttf',
          $pluginFontDir . '/DejaVuSans-Bold.ttf',
+         // System fallbacks:
          '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
          '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
          '/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf',
@@ -782,8 +785,11 @@ class Label extends CommonDBTM {
          '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf',
          'C:/Windows/Fonts/arialbd.ttf',
       ] : [
+         // Bundled with the plugin (first priority — works everywhere):
+         $pluginFontDir . '/NotoSans-Regular.ttf',
          $pluginFontDir . '/LiberationSans-Regular.ttf',
          $pluginFontDir . '/DejaVuSans.ttf',
+         // System fallbacks:
          '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
          '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
          '/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf',

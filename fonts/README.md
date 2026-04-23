@@ -1,26 +1,36 @@
 # Fonts for PNG label export
 
-PNG label generation (Brother P-Touch Cube workflow) uses GD's
-`imagettftext()`, which requires a TrueType font file on disk.
+PNG label generation uses GD's `imagettftext()`, which requires a TrueType
+font file on disk.
 
-The plugin looks for fonts in this order:
+**Since v1.4.1, the plugin bundles [Noto Sans](https://fonts.google.com/noto/specimen/Noto+Sans)
+(Apache 2.0 license) directly in this directory** so PNG export works
+out-of-the-box on any GLPI install, including hosted / sandboxed environments
+with no system fonts.
 
-1. **This directory** — drop a TTF here to override system fonts.
-2. **Common Linux paths** — `/usr/share/fonts/truetype/liberation/`,
-   `/usr/share/fonts/truetype/dejavu/`, etc.
+## Font lookup order
+
+The plugin searches for a usable TTF in this order:
+
+1. **Plugin bundled** (this directory) — `NotoSans-Regular.ttf`, `LiberationSans-Regular.ttf`, `DejaVuSans.ttf` (and their `-Bold` counterparts).
+2. **Common Linux system paths** — `/usr/share/fonts/truetype/liberation/`, `/usr/share/fonts/truetype/dejavu/`, etc.
 3. **Windows** — `C:\Windows\Fonts\arial.ttf`.
 
-On Debian/Ubuntu GLPI servers, install one of:
+## Overriding the bundled font
 
-```
-sudo apt install fonts-liberation
-sudo apt install fonts-dejavu
-```
+Drop your own `LiberationSans-Regular.ttf` or `DejaVuSans.ttf` (+ matching
+`-Bold.ttf`) in this directory — the plugin uses the first hit in the list
+above, so a named file takes precedence over fallbacks only if it comes
+earlier in the search order.
 
-Otherwise, download `LiberationSans-Regular.ttf` + `LiberationSans-Bold.ttf`
-(or `DejaVuSans.ttf` + `DejaVuSans-Bold.ttf`) from the Liberation / DejaVu
-upstream projects and drop them in this folder.
+The simplest way to switch to another font: delete `NotoSans-*.ttf` from this
+directory and drop your preferred TTF in its place (keeping the naming
+convention, or patch `Label::findFont()` to recognise your filename).
 
-Recognized filenames (any pair works):
-- `LiberationSans-Regular.ttf` + `LiberationSans-Bold.ttf`
-- `DejaVuSans.ttf` + `DejaVuSans-Bold.ttf`
+## License notice
+
+- **Noto Sans** — Apache License 2.0, © Google LLC. See `OFL.txt` upstream.
+- **Liberation Sans** — SIL Open Font License 1.1 (if used).
+- **DejaVu Sans** — Bitstream Vera / Arev derivative license (if used).
+
+All three are free to redistribute with this plugin.

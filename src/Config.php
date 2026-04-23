@@ -30,7 +30,6 @@ class Config extends CommonDBTM {
     */
    static function getConfig(): array {
       $defaults = [
-         'printer_type'  => 'sheet',
          'tape_size'     => '36mm',
          'color_mode'    => 'bw',
          'show_date'     => 1,
@@ -65,15 +64,6 @@ class Config extends CommonDBTM {
       echo "<tr><th colspan='4'>"
          . __('QR Code Label - Configuration', 'qrcodelabel')
          . "</th></tr>";
-
-      // ── Printer type ────────────────────────────────────────────────────
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>" . __('Printer type', 'qrcodelabel') . "</td><td colspan='3'>";
-      Dropdown::showFromArray('printer_type', [
-         'sheet'  => __('Sheet printer (A4/Letter label grid)', 'qrcodelabel'),
-         'label'  => __('Label printer (Brother QL, Dymo...)', 'qrcodelabel'),
-      ], ['value' => $config['printer_type'], 'width' => '350']);
-      echo "</td></tr>";
 
       // ── Tape size ─────────────────────────────────────────────────────────
       echo "<tr class='tab_bg_1'>";

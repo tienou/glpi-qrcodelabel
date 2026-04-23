@@ -53,7 +53,6 @@ function plugin_qrcodelabel_install() {
       $DB->doQueryOrDie(
          "CREATE TABLE `glpi_plugin_qrcodelabel_configs` (
             `id`            INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-            `printer_type`  VARCHAR(20)   NOT NULL DEFAULT 'sheet',
             `tape_size`     VARCHAR(10)   NOT NULL DEFAULT '36mm',
             `color_mode`    VARCHAR(20)   NOT NULL DEFAULT 'bw',
             `show_date`     TINYINT(1)    NOT NULL DEFAULT 1,
@@ -71,7 +70,6 @@ function plugin_qrcodelabel_install() {
 
       $DB->insert("glpi_plugin_qrcodelabel_configs", [
          'id'            => 1,
-         'printer_type'  => 'sheet',
          'tape_size'     => '36mm',
          'color_mode'    => 'bw',
          'show_date'     => 1,
@@ -81,14 +79,16 @@ function plugin_qrcodelabel_install() {
          'output_format' => 'pdf',
       ]);
    } else {
-      // ── v1.4.0 migration: add output_format column to existing installs ──
       $migration = new Migration(PLUGIN_QRCODELABEL_VERSION);
+      // v1.4.0: add output_format column (idempotent via addField)
       $migration->addField(
          'glpi_plugin_qrcodelabel_configs',
          'output_format',
          "VARCHAR(10) NOT NULL DEFAULT 'pdf'",
          ['after' => 'owner_text']
       );
+      // v1.4.1: drop unused printer_type column (idempotent via dropField)
+      $migration->dropField('glpi_plugin_qrcodelabel_configs', 'printer_type');
       $migration->executeMigration();
    }
 
