@@ -84,7 +84,9 @@ if ($item->isField('locations_id') && $item->fields['locations_id'] > 0) {
 $dateInv = '';
 $dateRaw = $item->fields['date_creation'] ?? '';
 if ($dateRaw) {
-   $dateInv = substr($dateRaw, 0, 10);
+   // Format YYYY-MM-DD → DD/MM/YYYY
+   $ymd = explode('-', substr($dateRaw, 0, 10));
+   $dateInv = (count($ymd) === 3) ? "{$ymd[2]}/{$ymd[1]}/{$ymd[0]}" : substr($dateRaw, 0, 10);
 }
 
 $assetData = [

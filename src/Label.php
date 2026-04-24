@@ -37,26 +37,36 @@ class Label extends CommonDBTM {
     * Label layout presets per tape size (mm).
     * Ported from the Python GUI application.
     */
+   // Layout (v1.4.3+): logo sits ABOVE the QR code on the left column, freeing
+   // the entire text area on the right for a full-width name line.
+   // Vertical layout per tape: top_m + logo_h + 1 (gap) + qr_size + bot_m = label_h
+   // Larger top/bottom margins (3–4 mm) cover the Brother tape unprintable zone.
    private static array $tapeSizes = [
+      // Layout math per tape: top_m + logo_h + 0.5 (gap) + qr_size + bot_m ≈ label_h
+      // Margins (3 mm top + bottom) cover the Brother tape unprintable zone.
       '24mm' => [
-         'label_w' => 70, 'label_h' => 24, 'qr_size' => 17,
+         'label_w' => 70, 'label_h' => 24, 'qr_size' => 13,
          'font_name' => 7, 'font_type' => 4.5, 'font_sn' => 5,
-         'font_loc' => 4.5, 'font_inv' => 4, 'logo_h' => 7,
+         'font_loc' => 4.5, 'font_inv' => 4,
+         'logo_h' => 5, 'top_m' => 2, 'bot_m' => 3,
       ],
       '25mm' => [
-         'label_w' => 70, 'label_h' => 25, 'qr_size' => 18,
+         'label_w' => 70, 'label_h' => 25, 'qr_size' => 14,
          'font_name' => 7.5, 'font_type' => 5, 'font_sn' => 5.5,
-         'font_loc' => 5, 'font_inv' => 4.5, 'logo_h' => 8,
+         'font_loc' => 5, 'font_inv' => 4.5,
+         'logo_h' => 5, 'top_m' => 2, 'bot_m' => 3,
       ],
       '36mm' => [
-         'label_w' => 80, 'label_h' => 36, 'qr_size' => 26,
+         'label_w' => 80, 'label_h' => 36, 'qr_size' => 15,
          'font_name' => 9, 'font_type' => 5.5, 'font_sn' => 6.5,
-         'font_loc' => 6, 'font_inv' => 5.5, 'logo_h' => 12,
+         'font_loc' => 6, 'font_inv' => 5.5,
+         'logo_h' => 13, 'top_m' => 3, 'bot_m' => 3,
       ],
       '50mm' => [
-         'label_w' => 90, 'label_h' => 50, 'qr_size' => 36,
+         'label_w' => 90, 'label_h' => 50, 'qr_size' => 26,
          'font_name' => 11, 'font_type' => 7, 'font_sn' => 8,
-         'font_loc' => 7, 'font_inv' => 6.5, 'logo_h' => 16,
+         'font_loc' => 7, 'font_inv' => 6.5,
+         'logo_h' => 16, 'top_m' => 4, 'bot_m' => 3,
       ],
    ];
 
@@ -267,7 +277,9 @@ class Label extends CommonDBTM {
          $dateInv = '';
          $dateRaw = $item->fields['date_creation'] ?? '';
          if ($dateRaw) {
-            $dateInv = substr($dateRaw, 0, 10);
+            // Format YYYY-MM-DD → DD/MM/YYYY
+            $ymd = explode('-', substr($dateRaw, 0, 10));
+            $dateInv = (count($ymd) === 3) ? "{$ymd[2]}/{$ymd[1]}/{$ymd[0]}" : substr($dateRaw, 0, 10);
          }
 
          $assets[] = [
@@ -603,9 +615,43 @@ class Label extends CommonDBTM {
          // Outer border removed (v1.4.0): cleaner look, avoids clipping the
          // logo when labels are printed flush-to-edge on Brother tapes.
 
-         // ── QR code — GLPI native (BarcodeManager) ────────────────────────
-         $qrX = $x + 3;
-         $qrY = $y + ($labelH - $qrSize) / 2;
+         // ── Left column: logo (top) + QR (below) ──────────────────────────
+         $leftColX    = $x + 2;               // 2mm margin from label left edge
+         $topMargin   = $ts['top_m'] ?? 3;    // mm
+         $logoToQrGap = 0.5;                  // mm
+
+         // Draw logo above QR column
+         // - width cap: QR + 4mm (accommodates wide banner-style logos)
+         // - bottom-aligned in its cell so the visible content sits close to
+         //   the QR regardless of the image aspect ratio.
+         if ($hasLogo) {
+            $logoHmm = $ts['logo_h'];
+            $imgInfo = @getimagesize($logoPath);
+            if ($imgInfo && $imgInfo[1] > 0) {
+               $ratio    = $imgInfo[0] / $imgInfo[1];
+               $cellH    = $ts['logo_h'];
+               $maxLogoW = $qrSize + 4;
+               $logoW    = $logoHmm * $ratio;
+               if ($logoW > $maxLogoW) {
+                  $logoW = $maxLogoW;
+                  $logoHmm = $logoW / $ratio;
+               }
+               $logoX = $leftColX + ($qrSize - $logoW) / 2;
+               if ($logoX < $x + 0.5) { $logoX = $x + 0.5; }
+               // Bottom-align within the cell of height $cellH
+               $logoY = $y + $topMargin + ($cellH - $logoHmm);
+
+               $useLogoPath = $logoPath;
+               if ($cm['invert_logo'] || $colorMode === 'mono') {
+                  $useLogoPath = self::processLogo($logoPath, $colorMode);
+               }
+               $pdf->Image($useLogoPath, $logoX, $logoY, $logoW, $logoHmm, 'PNG', '', '', false, 300);
+            }
+         }
+
+         // QR positioned below logo (or at top if no logo)
+         $qrX = $leftColX;
+         $qrY = $y + $topMargin + $ts['logo_h'] + $logoToQrGap;
          $qrPng = (!empty($asset['itemtype']) && !empty($asset['id']))
             ? self::generateQrPng($asset['itemtype'], $asset['id'], $cm['qr_fg'], $cm['qr_bg'])
             : false;
@@ -613,49 +659,31 @@ class Label extends CommonDBTM {
             $pdf->Image($qrPng, $qrX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
          }
 
-         // ── Vertical separator ─────────────────────────────────────────────
-         $sx = $x + 3 + $qrSize + 2;
+         // ── Vertical separator — centred in the gap between QR and text ───
+         $qrEnd = $leftColX + $qrSize;
+         $tx    = $qrEnd + 7;                              // text starts 7mm after QR end
+         $sx    = $qrEnd + ($tx - $qrEnd) / 2;             // separator in the middle of the gap
          $pdf->SetDrawColor($cm['sep'][0], $cm['sep'][1], $cm['sep'][2]);
-         $pdf->SetLineWidth(0.3);
+         $pdf->SetLineWidth(0.6);
          $pdf->Line($sx, $y + 3, $sx, $y + $labelH - 3);
 
-         // Text area starts here
-         $tx = $sx + 3;
          $textW = $labelW - ($tx - $x) - 2;
-
-         // ── Logo (top-right corner, color-adapted like Python) ─────────────
-         if ($hasLogo) {
-            $logoH = $ts['logo_h'];
-            $logoMaxW = $textW;
-            $imgInfo = @getimagesize($logoPath);
-            if ($imgInfo && $imgInfo[1] > 0) {
-               $ratio = $imgInfo[0] / $imgInfo[1];
-               $logoW = $logoH * $ratio;
-               if ($logoW > $logoMaxW) {
-                  $logoW = $logoMaxW;
-                  $logoH = $logoW / $ratio;
-               }
-               $logoX = $x + $labelW - $logoW - 2;
-               $logoY = $y + 3;
-
-               // Process logo per color mode (same logic as Python exe)
-               $useLogoPath = $logoPath;
-               if ($cm['invert_logo'] || $colorMode === 'mono') {
-                  $useLogoPath = self::processLogo($logoPath, $colorMode);
-               }
-               $pdf->Image($useLogoPath, $logoX, $logoY, $logoW, $logoH, 'PNG', '', '', false, 300);
-            }
-         }
 
          // ── Text fields — fixed mm positions from Python ReportLab ─────────
          // Python (bottom-up):  drawString(tx, y + lh - Nmm)
          // TCPDF  (top-down):   SetXY(tx, y + Nmm - baseline_offset)
          // TCPDF baseline offset ≈ font_pt * 0.35 (ascender)
 
-         $maxChars = (int)($labelW * 0.22);
+         // Dynamic name truncation: the full text width is now available
+         // (logo sits above QR on the left, not top-right anymore).
+         $pdf->SetFont('helvetica', 'B', $ts['font_name']);
          $name = $asset['name'];
-         if (mb_strlen($name) > $maxChars + 1) {
-            $name = mb_substr($name, 0, $maxChars) . '...';
+         if ($pdf->GetStringWidth($name) > $textW) {
+            while (mb_strlen($name) > 1
+                   && $pdf->GetStringWidth($name . '…') > $textW) {
+               $name = mb_substr($name, 0, -1);
+            }
+            $name .= '…';
          }
 
          // Fixed offsets per tape size (from top of label, in mm)
@@ -683,12 +711,20 @@ class Label extends CommonDBTM {
          $pdf->SetXY($tx, $y + $oType - $ts['font_type'] * 0.35);
          $pdf->Cell($textW, 0, $asset['type_label'], 0, 0, 'L');
 
-         // Serial number
+         // Serial number — dynamic truncation to fit textW width
          $pdf->SetFont('helvetica', 'B', $ts['font_sn']);
          $pdf->SetTextColor($cm['sn'][0], $cm['sn'][1], $cm['sn'][2]);
-         $sn = $asset['serial'] ?: 'N/A';
+         $sn  = $asset['serial'] ?: 'N/A';
+         $snStr = 'S/N: ' . $sn;
+         if ($pdf->GetStringWidth($snStr) > $textW) {
+            while (mb_strlen($sn) > 1
+                   && $pdf->GetStringWidth('S/N: ' . $sn . '…') > $textW) {
+               $sn = mb_substr($sn, 0, -1);
+            }
+            $snStr = 'S/N: ' . $sn . '…';
+         }
          $pdf->SetXY($tx, $y + $oSn - $ts['font_sn'] * 0.35);
-         $pdf->Cell($textW, 0, 'S/N: ' . mb_substr($sn, 0, 20), 0, 0, 'L');
+         $pdf->Cell($textW, 0, $snStr, 0, 0, 'L');
 
          // Inventory date (not on 25mm)
          $dateInv = $asset['date_inv'] ?? '';
@@ -697,7 +733,7 @@ class Label extends CommonDBTM {
             $pdf->SetFont('helvetica', '', $ts['font_loc']);
             $pdf->SetTextColor($cm['sub'][0], $cm['sub'][1], $cm['sub'][2]);
             $pdf->SetXY($tx, $y + $oDate - $ts['font_loc'] * 0.35);
-            $pdf->Cell($textW, 0, 'Inv: ' . $dateInv, 0, 0, 'L');
+            $pdf->Cell($textW, 0, 'Inv : ' . $dateInv, 0, 0, 'L');
          }
 
          // Location — only when globally enabled (show_location=1)
@@ -717,12 +753,12 @@ class Label extends CommonDBTM {
          $hasOwner = ($ownerText !== '');
          $hasInv   = ($inv !== '');
          if (($hasOwner || $hasInv) && $tapeSize !== '25mm') {
-            $bottomY = $y + $labelH - 7 - ($ts['font_inv'] * 0.35);
+            $bottomY = $y + $labelH - 6 - ($ts['font_inv'] * 0.35);
             $pdf->SetFont('helvetica', '', $ts['font_inv']);
             $pdf->SetTextColor($cm['inv'][0], $cm['inv'][1], $cm['inv'][2]);
             if ($hasOwner && $hasInv) {
                // Owner text left, inv number right
-               $invStr = 'Inv: ' . $inv;
+               $invStr = 'Inv : ' . $inv;
                $pdf->SetXY($tx, $bottomY);
                $pdf->Cell($textW, 0, $ownerText, 0, 0, 'L');
                // Overlay inv number right-aligned on same line
@@ -733,7 +769,7 @@ class Label extends CommonDBTM {
                $pdf->Cell($textW, 0, $ownerText, 0, 0, 'L');
             } else {
                $pdf->SetXY($tx, $bottomY);
-               $pdf->Cell($textW, 0, 'Inv: ' . $inv, 0, 0, 'L');
+               $pdf->Cell($textW, 0, 'Inv : ' . $inv, 0, 0, 'L');
             }
          }
 
@@ -857,31 +893,13 @@ class Label extends CommonDBTM {
 
       // Outer border removed (v1.4.0): cleaner look + no clipping of logo.
 
-      // ── QR code ─────────────────────────────────────────────────────────
-      $qrPx = (int)round($ts['qr_size'] * $mmToPx);
-      $qrX  = (int)round(3 * $mmToPx);
-      $qrY  = (int)round((($ts['label_h'] - $ts['qr_size']) / 2) * $mmToPx);
-      $qrPng = (!empty($asset['itemtype']) && !empty($asset['id']))
-         ? self::generateQrPng($asset['itemtype'], $asset['id'], $cm['qr_fg'], $cm['qr_bg'])
-         : false;
-      if ($qrPng && file_exists($qrPng)) {
-         $qr = @imagecreatefrompng($qrPng);
-         if ($qr) {
-            imagecopyresampled($img, $qr, $qrX, $qrY, 0, 0,
-               $qrPx, $qrPx, imagesx($qr), imagesy($qr));
-            imagedestroy($qr);
-         }
-      }
+      // ── Left column: logo (top) + QR (below) ──────────────────────────
+      $leftColPx   = (int)round(2 * $mmToPx);                     // 2mm left
+      $topMarginPx = (int)round(($ts['top_m'] ?? 3) * $mmToPx);
+      $gapPx       = (int)round(0.5 * $mmToPx);
+      $qrPx        = (int)round($ts['qr_size'] * $mmToPx);
 
-      // ── Vertical separator ──────────────────────────────────────────────
-      $sx = $qrX + $qrPx + (int)round(2 * $mmToPx);
-      $sep = imagecolorallocate($img, $cm['sep'][0], $cm['sep'][1], $cm['sep'][2]);
-      imageline($img, $sx, (int)round(3 * $mmToPx), $sx, $h - (int)round(3 * $mmToPx), $sep);
-
-      $tx    = $sx + (int)round(3 * $mmToPx);
-      $textW = $w - $tx - (int)round(2 * $mmToPx);
-
-      // ── Logo (top-right corner) ─────────────────────────────────────────
+      // Logo — top-left column, centered horizontally above QR
       $logoPath = GLPI_PLUGIN_DOC_DIR . '/qrcodelabel/logo.png';
       if (file_exists($logoPath)) {
          $useLogoPath = $logoPath;
@@ -897,15 +915,19 @@ class Label extends CommonDBTM {
             $lOrigW = imagesx($logo);
             $lOrigH = imagesy($logo);
             if ($lOrigH > 0) {
-               $ratio = $lOrigW / $lOrigH;
-               $logoH = (int)round($ts['logo_h'] * $mmToPx);
-               $logoW = (int)round($logoH * $ratio);
-               if ($logoW > $textW) {
-                  $logoW = $textW;
+               $ratio    = $lOrigW / $lOrigH;
+               $cellHPx  = (int)round($ts['logo_h'] * $mmToPx);
+               $maxLogoW = $qrPx + (int)round(4 * $mmToPx);
+               $logoH    = $cellHPx;
+               $logoW    = (int)round($logoH * $ratio);
+               if ($logoW > $maxLogoW) {
+                  $logoW = $maxLogoW;
                   $logoH = (int)round($logoW / $ratio);
                }
-               $logoX = $w - $logoW - (int)round(2 * $mmToPx);
-               $logoY = (int)round(3 * $mmToPx);
+               $logoX = $leftColPx + (int)round(($qrPx - $logoW) / 2);
+               if ($logoX < 0) { $logoX = 0; }
+               // Bottom-align within cell so visible logo content sits close to QR
+               $logoY = $topMarginPx + ($cellHPx - $logoH);
                imagealphablending($img, true);
                imagecopyresampled($img, $logo, $logoX, $logoY, 0, 0,
                   $logoW, $logoH, $lOrigW, $lOrigH);
@@ -913,6 +935,38 @@ class Label extends CommonDBTM {
             imagedestroy($logo);
          }
       }
+
+      // QR below logo
+      $qrX  = $leftColPx;
+      $qrY  = $topMarginPx + (int)round($ts['logo_h'] * $mmToPx) + $gapPx;
+      $qrPng = (!empty($asset['itemtype']) && !empty($asset['id']))
+         ? self::generateQrPng($asset['itemtype'], $asset['id'], $cm['qr_fg'], $cm['qr_bg'])
+         : false;
+      if ($qrPng && file_exists($qrPng)) {
+         $qr = @imagecreatefrompng($qrPng);
+         if ($qr) {
+            imagecopyresampled($img, $qr, $qrX, $qrY, 0, 0,
+               $qrPx, $qrPx, imagesx($qr), imagesy($qr));
+            imagedestroy($qr);
+         }
+      }
+
+      // ── Vertical separator — centred in the gap between QR and text ────
+      $qrEndPx = $qrX + $qrPx;
+      $tx      = $qrEndPx + (int)round(7 * $mmToPx);          // text 7mm after QR end
+      $sx      = (int)round(($qrEndPx + $tx) / 2);            // separator mid-gap
+      $sep     = imagecolorallocate($img, $cm['sep'][0], $cm['sep'][1], $cm['sep'][2]);
+      // Thicker separator (Brother thermal printers struggle with 1-pixel lines):
+      // draw a filled rectangle 0.6 mm wide instead of a 1-px imageline.
+      $sepHalf = max(1, (int)round(0.3 * $mmToPx));  // half-width in px
+      imagefilledrectangle(
+         $img,
+         $sx - $sepHalf, (int)round(3 * $mmToPx),
+         $sx + $sepHalf, $h - (int)round(3 * $mmToPx),
+         $sep
+      );
+
+      $textW = $w - $tx - (int)round(2 * $mmToPx);
 
       // ── Text offsets (same logic as printPDF) ───────────────────────────
       if ($tapeSize === '25mm' || $tapeSize === '24mm') {
@@ -923,10 +977,24 @@ class Label extends CommonDBTM {
          $oName = 10; $oType = 14; $oSn = 19.5; $oDate = 24; $oLoc = 28;
       }
 
-      $maxChars = (int)($ts['label_w'] * 0.22);
+      // Full text area available for the name (logo is above QR, not
+      // on the text row anymore).
+      $nameMaxPx = $textW;
+
+      // Dynamic name truncation: measure actual rendered width with the bold
+      // font at label font size, and trim until it fits (handles wide glyphs).
       $name = $asset['name'];
-      if (mb_strlen($name) > $maxChars + 1) {
-         $name = mb_substr($name, 0, $maxChars) . '...';
+      $nameFontPx = $ts['font_name'] * $ptToPx;
+      $measure = static function (string $s) use ($nameFontPx, $fontBold): int {
+         if ($s === '') { return 0; }
+         $bbox = imagettfbbox($nameFontPx, 0, $fontBold, $s);
+         return abs($bbox[2] - $bbox[0]);
+      };
+      if ($measure($name) > $nameMaxPx) {
+         while (mb_strlen($name) > 1 && $measure($name . '…') > $nameMaxPx) {
+            $name = mb_substr($name, 0, -1);
+         }
+         $name .= '…';
       }
 
       // Helper: draw text with baseline at Y (mm from top of label)
@@ -949,15 +1017,29 @@ class Label extends CommonDBTM {
       // Type
       $drawText($asset['type_label'] ?? '', $oType, $ts['font_type'], $cm['sub'], false);
 
-      // Serial
-      $sn = $asset['serial'] ?: 'N/A';
-      $drawText('S/N: ' . mb_substr($sn, 0, 20), $oSn, $ts['font_sn'], $cm['sn'], true);
+      // Serial — dynamic truncation to fit nameMaxPx (same width as name)
+      $sn       = $asset['serial'] ?: 'N/A';
+      $snFontPx = $ts['font_sn'] * $ptToPx;
+      $snStr    = 'S/N: ' . $sn;
+      $snBbox   = imagettfbbox($snFontPx, 0, $fontBold, $snStr);
+      if (abs($snBbox[2] - $snBbox[0]) > $nameMaxPx) {
+         while (mb_strlen($sn) > 1) {
+            $trial = 'S/N: ' . $sn . '…';
+            $bb    = imagettfbbox($snFontPx, 0, $fontBold, $trial);
+            if (abs($bb[2] - $bb[0]) <= $nameMaxPx) {
+               break;
+            }
+            $sn = mb_substr($sn, 0, -1);
+         }
+         $snStr = 'S/N: ' . $sn . '…';
+      }
+      $drawText($snStr, $oSn, $ts['font_sn'], $cm['sn'], true);
 
       // Date (not on 24/25mm)
       $dateInv = $asset['date_inv'] ?? '';
       $hasDate = ($dateInv && $tapeSize !== '25mm' && $tapeSize !== '24mm' && $showDate && $oDate > 0);
       if ($hasDate) {
-         $drawText('Inv: ' . $dateInv, $oDate, $ts['font_loc'], $cm['sub'], false);
+         $drawText('Inv : ' . $dateInv, $oDate, $ts['font_loc'], $cm['sub'], false);
       }
 
       // Location — only when globally enabled (show_location=1)
@@ -974,10 +1056,10 @@ class Label extends CommonDBTM {
       $hasOwner = ($ownerText !== '');
       $hasInv   = ($inv !== '');
       if (($hasOwner || $hasInv) && $tapeSize !== '25mm' && $tapeSize !== '24mm') {
-         // 7mm margin to stay clear of Brother tape unprintable bottom edge
-         // (descender of "p" / "g" must land inside printable area)
-         $bottomY = $ts['label_h'] - 7;
-         $invStr  = 'Inv: ' . $inv;
+         // 6mm margin: descender of "p"/"g" still clears the Brother tape
+         // unprintable bottom edge, but text sits closer to the label bottom.
+         $bottomY = $ts['label_h'] - 6;
+         $invStr  = 'Inv : ' . $inv;
          $col     = imagecolorallocate($img, $cm['inv'][0], $cm['inv'][1], $cm['inv'][2]);
          $fontSizePx = $ts['font_inv'] * $ptToPx;
 
