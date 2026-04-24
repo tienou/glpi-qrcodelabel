@@ -152,6 +152,7 @@ if ($profileAction === 'update' && $profileId > 0) {
    $ownerText = mb_substr(trim($_POST['owner_text'] ?? ''), 0, 255);
    $outputFormat = in_array($_POST['output_format'] ?? '', $validOutputFormats, true)
       ? $_POST['output_format'] : 'pdf';
+   $showLocation = (int)(bool)($_POST['show_location'] ?? 0);
 
    // Save configuration
    $config = new Config();
@@ -167,6 +168,7 @@ if ($profileAction === 'update' && $profileId > 0) {
          'orientation'   => $orientation,
          'owner_text'    => $ownerText,
          'output_format' => $outputFormat,
+         'show_location' => $showLocation,
       ]);
    } else {
       $config->update([
@@ -178,6 +180,7 @@ if ($profileAction === 'update' && $profileId > 0) {
          'orientation'   => $orientation,
          'owner_text'    => $ownerText,
          'output_format' => $outputFormat,
+         'show_location' => $showLocation,
       ]);
    }
    Session::addMessageAfterRedirect(__('Configuration saved.', 'qrcodelabel'));

@@ -60,6 +60,7 @@ function plugin_qrcodelabel_install() {
             `orientation`   VARCHAR(10)   NOT NULL DEFAULT 'Portrait',
             `owner_text`    VARCHAR(255)  NOT NULL DEFAULT '',
             `output_format` VARCHAR(10)   NOT NULL DEFAULT 'pdf',
+            `show_location` TINYINT(1)    NOT NULL DEFAULT 0,
             PRIMARY KEY (`id`)
          ) ENGINE=InnoDB
            DEFAULT CHARSET={$default_charset}
@@ -77,6 +78,7 @@ function plugin_qrcodelabel_install() {
          'orientation'   => 'Portrait',
          'owner_text'    => '',
          'output_format' => 'pdf',
+         'show_location' => 0,
       ]);
    } else {
       $migration = new Migration(PLUGIN_QRCODELABEL_VERSION);
@@ -89,6 +91,13 @@ function plugin_qrcodelabel_install() {
       );
       // v1.4.1: drop unused printer_type column (idempotent via dropField)
       $migration->dropField('glpi_plugin_qrcodelabel_configs', 'printer_type');
+      // v1.4.2: add show_location toggle (off by default)
+      $migration->addField(
+         'glpi_plugin_qrcodelabel_configs',
+         'show_location',
+         "TINYINT(1) NOT NULL DEFAULT 0",
+         ['after' => 'output_format']
+      );
       $migration->executeMigration();
    }
 

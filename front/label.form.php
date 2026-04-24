@@ -103,12 +103,13 @@ $assetData = [
 $assets = [$assetData];
 
 $params = [
-   'tape_size'   => $tapeSize,
-   'color_mode'  => $colorMode,
-   'owner_text'  => $ownerText,
-   'show_date'   => (bool)$profile['show_date'],
-   'page_size'   => $profile['page_size'],
-   'orientation' => $profile['orientation'],
+   'tape_size'     => $tapeSize,
+   'color_mode'    => $colorMode,
+   'owner_text'    => $ownerText,
+   'show_date'     => (bool)$profile['show_date'],
+   'show_location' => (bool)($config['show_location'] ?? 0),
+   'page_size'     => $profile['page_size'],
+   'orientation'   => $profile['orientation'],
 ];
 
 $ok = Label::emitDownloadLinks($assets, $params, $format);

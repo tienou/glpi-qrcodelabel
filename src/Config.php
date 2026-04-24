@@ -37,6 +37,7 @@ class Config extends CommonDBTM {
          'orientation'   => 'Portrait',
          'owner_text'    => '',
          'output_format' => 'pdf',
+         'show_location' => 0,
       ];
 
       $config = new self();
@@ -87,27 +88,28 @@ class Config extends CommonDBTM {
       ], ['value' => $config['color_mode'], 'width' => '200']);
       echo "</td></tr>";
 
-      // ── Show date ─────────────────────────────────────────────────────────
+      // ── Show date + show location (one row) ────────────────────────────
       echo "<tr class='tab_bg_1'>";
       echo "<td>" . __('Show inventory date', 'qrcodelabel') . "</td><td>";
       Dropdown::showYesNo('show_date', $config['show_date'], -1, ['width' => '100']);
       echo "</td>";
+      echo "<td>" . __('Show location', 'qrcodelabel') . "</td><td>";
+      Dropdown::showYesNo('show_location', $config['show_location'] ?? 0, -1, ['width' => '100']);
+      echo "</td></tr>";
 
-      // ── Page size ─────────────────────────────────────────────────────────
+      // ── Page size + Orientation (one row) ──────────────────────────────
+      echo "<tr class='tab_bg_1'>";
       echo "<td>" . __('Default page size', 'qrcodelabel') . "</td><td>";
       Dropdown::showFromArray('page_size', [
          'A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal',
       ], ['value' => $config['page_size'], 'width' => '120']);
-      echo "</td></tr>";
-
-      // ── Orientation ───────────────────────────────────────────────────────
-      echo "<tr class='tab_bg_1'>";
+      echo "</td>";
       echo "<td>" . __('Default orientation', 'qrcodelabel') . "</td><td>";
       Dropdown::showFromArray('orientation', [
          'Portrait'  => __('Portrait', 'qrcodelabel'),
          'Landscape' => __('Landscape', 'qrcodelabel'),
       ], ['value' => $config['orientation'], 'width' => '120']);
-      echo "</td><td colspan='2'></td></tr>";
+      echo "</td></tr>";
 
       // ── Owner text ────────────────────────────────────────────────────────
       echo "<tr class='tab_bg_1'>";

@@ -200,3 +200,6 @@ msgstr "No TTF font available for PNG export. Install fonts-liberation or fonts-
 
 msgid "PHP zip extension is required for multi-label PNG export."
 msgstr "PHP zip extension is required for multi-label PNG export."
+
+msgid "Show location"
+msgstr "Show location"

@@ -24,7 +24,7 @@ use Session;
  * Main class for QR Code Label generation using GLPI's native TCPDF.
  *
  * Generates rich inventory labels: QR code + asset name + type + serial number
- * + location + inventory date + company logo + owner text.
+ * + inventory date + company logo + owner text.
  *
  * No external vendor dependencies — TCPDF ships with GLPI 10 and 11.
  * QR codes are rendered as native vector paths (write2DBarcode).
@@ -294,12 +294,13 @@ class Label extends CommonDBTM {
       $format = in_array($config['output_format'] ?? 'pdf', ['pdf', 'png', 'both'], true)
          ? $config['output_format'] : 'pdf';
       $params = [
-         'tape_size'   => $tapeSize,
-         'color_mode'  => $colorMode,
-         'show_date'   => $showDate,
-         'page_size'   => $pageSize,
-         'orientation' => $orient,
-         'owner_text'  => $config['owner_text'] ?? '',
+         'tape_size'     => $tapeSize,
+         'color_mode'    => $colorMode,
+         'show_date'     => $showDate,
+         'show_location' => (bool)($config['show_location'] ?? 0),
+         'page_size'     => $pageSize,
+         'orientation'   => $orient,
+         'owner_text'    => $config['owner_text'] ?? '',
       ];
 
       $ok = self::emitDownloadLinks($assets, $params, $format);
@@ -521,6 +522,7 @@ class Label extends CommonDBTM {
       $tapeSize  = $params['tape_size']  ?? '36mm';
       $colorMode = $params['color_mode'] ?? 'bw';
       $showDate  = (bool)($params['show_date'] ?? true);
+      $showLoc   = (bool)($params['show_location'] ?? false);
       $pageSize  = strtoupper($params['page_size'] ?? 'A4');
       $isLandscape = (($params['orientation'] ?? 'Portrait') === 'Landscape');
       $ownerText = trim($params['owner_text'] ?? '');
@@ -698,9 +700,9 @@ class Label extends CommonDBTM {
             $pdf->Cell($textW, 0, 'Inv: ' . $dateInv, 0, 0, 'L');
          }
 
-         // Location
+         // Location — only when globally enabled (show_location=1)
          $location = $asset['location'] ?? '';
-         if ($location && $tapeSize !== '25mm') {
+         if ($showLoc && $location && $tapeSize !== '25mm' && $tapeSize !== '24mm') {
             $locOffset = $hasDate ? $oLoc : $oDate;
             if ($locOffset > 0) {
                $pdf->SetFont('helvetica', 'I', $ts['font_loc']);
@@ -824,6 +826,7 @@ class Label extends CommonDBTM {
       $tapeSize  = $params['tape_size']  ?? '36mm';
       $colorMode = $params['color_mode'] ?? 'bw';
       $showDate  = (bool)($params['show_date'] ?? true);
+      $showLoc   = (bool)($params['show_location'] ?? false);
       $ownerText = trim($params['owner_text'] ?? '');
 
       $ts = self::$tapeSizes[$tapeSize] ?? self::$tapeSizes['36mm'];
@@ -957,9 +960,9 @@ class Label extends CommonDBTM {
          $drawText('Inv: ' . $dateInv, $oDate, $ts['font_loc'], $cm['sub'], false);
       }
 
-      // Location
+      // Location — only when globally enabled (show_location=1)
       $location = $asset['location'] ?? '';
-      if ($location && $tapeSize !== '25mm' && $tapeSize !== '24mm') {
+      if ($showLoc && $location && $tapeSize !== '25mm' && $tapeSize !== '24mm') {
          $locOffset = $hasDate ? $oLoc : $oDate;
          if ($locOffset > 0) {
             $drawText(mb_substr($location, 0, 22), $locOffset, $ts['font_loc'], $cm['loc'], false);
