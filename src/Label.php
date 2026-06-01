@@ -191,6 +191,9 @@ class Label extends CommonDBTM {
       if ($ma->getAction() !== 'GenerateLabels') {
          return false;
       }
+      if (!Session::haveRight(self::$rightname, CREATE)) {
+         return false;
+      }
 
       $profiles = Printprofile::getProfiles();
       $defaultProfile = Printprofile::getDefault();
@@ -220,6 +223,10 @@ class Label extends CommonDBTM {
 
    static function processMassiveActionsForOneItemtype(MassiveAction $ma, CommonDBTM $item, array $ids): void {
       if ($ma->getAction() !== 'GenerateLabels') {
+         return;
+      }
+      if (!Session::haveRight(self::$rightname, CREATE)) {
+         $ma->itemDone($item->getType(), $ids, MassiveAction::ACTION_KO);
          return;
       }
 
@@ -426,8 +433,9 @@ class Label extends CommonDBTM {
          }
       }
 
+      $uid      = (int)(Session::getLoginUserID() ?: 0);
       $cacheKey = md5($url . implode(',', $fgColor) . implode(',', $bgColor));
-      $tmpPath  = GLPI_TMP_DIR . '/qrcodelabel_qr_' . $cacheKey . '.png';
+      $tmpPath  = GLPI_TMP_DIR . '/qrcodelabel_qr_' . $uid . '_' . $cacheKey . '.png';
       imagepng($img, $tmpPath);
       imagedestroy($img);
 
@@ -446,8 +454,9 @@ class Label extends CommonDBTM {
     * Returns path to a temp PNG file.
     */
    private static function processLogo(string $srcPath, string $colorMode): string {
+      $uid      = (int)(Session::getLoginUserID() ?: 0);
       $cacheKey = md5($srcPath . $colorMode);
-      $tmpPath  = GLPI_TMP_DIR . '/qrcodelabel_logo_' . $cacheKey . '.png';
+      $tmpPath  = GLPI_TMP_DIR . '/qrcodelabel_logo_' . $uid . '_' . $cacheKey . '.png';
       if (file_exists($tmpPath)) {
          return $tmpPath;
       }
@@ -780,14 +789,16 @@ class Label extends CommonDBTM {
       $pdfPath = GLPI_TMP_DIR . '/' . $pdfFile;
       $pdf->Output($pdfPath, 'F');
 
-      // ── Clean up temporary QR and logo PNGs ────────────────────────────────
-      $tmpFiles = glob(GLPI_TMP_DIR . '/qrcodelabel_qr_*.png');
+      // ── Clean up temporary QR and logo PNGs (this user's only, so a
+      //    concurrent request from another user is never disturbed) ───────────
+      $uid = (int)(Session::getLoginUserID() ?: 0);
+      $tmpFiles = glob(GLPI_TMP_DIR . '/qrcodelabel_qr_' . $uid . '_*.png');
       if ($tmpFiles) {
          foreach ($tmpFiles as $tmpFile) {
             @unlink($tmpFile);
          }
       }
-      $tmpLogos = glob(GLPI_TMP_DIR . '/qrcodelabel_logo_*.png');
+      $tmpLogos = glob(GLPI_TMP_DIR . '/qrcodelabel_logo_' . $uid . '_*.png');
       if ($tmpLogos) {
          foreach ($tmpLogos as $tmpFile) {
             @unlink($tmpFile);
@@ -1087,11 +1098,12 @@ class Label extends CommonDBTM {
       imagepng($img, $path);
       imagedestroy($img);
 
-      // ── Clean up intermediate QR / logo PNGs ────────────────────────────
-      foreach (glob(GLPI_TMP_DIR . '/qrcodelabel_qr_*.png') ?: [] as $f) {
+      // ── Clean up intermediate QR / logo PNGs (this user's only) ──────────
+      $uid = (int)(Session::getLoginUserID() ?: 0);
+      foreach (glob(GLPI_TMP_DIR . '/qrcodelabel_qr_' . $uid . '_*.png') ?: [] as $f) {
          @unlink($f);
       }
-      foreach (glob(GLPI_TMP_DIR . '/qrcodelabel_logo_*.png') ?: [] as $f) {
+      foreach (glob(GLPI_TMP_DIR . '/qrcodelabel_logo_' . $uid . '_*.png') ?: [] as $f) {
          @unlink($f);
       }
 

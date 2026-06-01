@@ -13,7 +13,9 @@ use GlpiPlugin\Qrcodelabel\Config;
 
 // GLPI 11: bootstrap is handled by Symfony LegacyFileLoadController.
 
-Session::checkRight("config", UPDATE);
+// Gated on the plugin's own right (not core "config") so a profile such as
+// Technician can manage QR Code Label settings without full GLPI setup rights.
+Session::checkRight('plugin_qrcodelabel_config', UPDATE);
 
 Plugin::load('qrcodelabel');
 

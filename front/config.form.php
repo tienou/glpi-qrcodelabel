@@ -14,7 +14,9 @@ use GlpiPlugin\Qrcodelabel\Printprofile;
 
 // GLPI 11: bootstrap is handled by Symfony LegacyFileLoadController.
 
-Session::checkRight("config", UPDATE);
+// Gated on the plugin's own right (not core "config") so a profile such as
+// Technician can manage QR Code Label settings without full GLPI setup rights.
+Session::checkRight('plugin_qrcodelabel_config', UPDATE);
 // CSRF is auto-validated by GLPI because $PLUGIN_HOOKS['csrf_compliant'] is set;
 // calling Session::checkCSRF() here a second time consumes the single-use token
 // and breaks multi-button forms (saveConfig / dropLogo / uploadLogo / pp_*).

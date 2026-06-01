@@ -32,22 +32,30 @@ if (!file_exists($path)) {
    return;
 }
 
-// Security: file must be inside GLPI_PLUGIN_DOC_DIR
+// Security: file must be inside THIS plugin's own doc subdirectory — never the
+// shared GLPI_PLUGIN_DOC_DIR root, which also holds other plugins' files.
 $realPath = realpath($path);
-$realDoc  = realpath(GLPI_PLUGIN_DOC_DIR);
+$realDoc  = realpath(GLPI_PLUGIN_DOC_DIR . '/qrcodelabel');
 if ($realPath === false || $realDoc === false
       || strpos($realPath, $realDoc . DIRECTORY_SEPARATOR) !== 0) {
    Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);
    return;
 }
 
-$ext  = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
-$mime = [
+// Only ever serve image files; reject any other extension outright (no
+// octet-stream fallback that could leak arbitrary files).
+$ext     = strtolower(pathinfo($realPath, PATHINFO_EXTENSION));
+$mimeMap = [
    'png'  => 'image/png',
    'jpg'  => 'image/jpeg',
    'jpeg' => 'image/jpeg',
    'gif'  => 'image/gif',
-][$ext] ?? 'application/octet-stream';
+];
+if (!isset($mimeMap[$ext])) {
+   Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);
+   return;
+}
+$mime = $mimeMap[$ext];
 
 header('Content-Type: ' . $mime);
 header('Content-Length: ' . filesize($realPath));
