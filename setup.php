@@ -38,7 +38,7 @@
 use GlpiPlugin\Qrcodelabel\Label;
 use GlpiPlugin\Qrcodelabel\Profile;
 
-define("PLUGIN_QRCODELABEL_VERSION", "1.4.3");
+define("PLUGIN_QRCODELABEL_VERSION", "1.4.4");
 
 // Minimal GLPI version, inclusive
 define('PLUGIN_QRCODELABEL_MIN_GLPI', '10.0.0');
@@ -61,6 +61,12 @@ function plugin_init_qrcodelabel() {
    global $PLUGIN_HOOKS;
 
    $PLUGIN_HOOKS['csrf_compliant']['qrcodelabel'] = true;
+
+   // Register the Profile tab so admins can grant rights per profile.
+   // GLPI 11 removed Plugin::registerClass(); src/ classes are PSR-4 autoloaded there.
+   if (method_exists('Plugin', 'registerClass')) {
+      Plugin::registerClass(Profile::class, ['addtabon' => ['Profile']]);
+   }
 
    if (Session::haveRight('plugin_qrcodelabel_label', CREATE)
          || Session::haveRight('plugin_qrcodelabel_config', UPDATE)) {
