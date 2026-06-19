@@ -12,10 +12,11 @@ Generate rich inventory labels with QR codes directly from GLPI. Designed for Br
 
 - **QR codes identical to GLPI native** — uses the same `tc-lib-barcode` library with `QRCODE,H` as GLPI's built-in `BarcodeManager`
 - **Rich labels** — QR code + asset name + type + serial number + location + inventory date + company logo + owner text
-- **3 tape sizes** — 25mm, 36mm, 50mm with automatic layout adaptation
+- **4 tape sizes** — 24mm, 25mm, 36mm, 50mm with automatic layout adaptation
 - **5 color modes** — Black & White, Monochrome, Color, Inverse (white on black), Inverse Mono
+- **PDF or PNG output** — A4 label sheets (PDF) or one PNG per asset for Brother P-Touch Cube (via iPrint&Label); set globally as PDF, PNG, or both
 - **Print profiles** — create reusable profiles (tape size, color, page format) in admin config, select one at print time
-- **Single item** — "QR Label" tab on each asset page with profile selection + copy count
+- **Single item** — "QR Label" tab on each asset page with print-profile selection
 - **Bulk generation** — Massive Action on asset lists, just pick a profile and print
 - **Zero dependencies** — uses only GLPI's bundled libraries (TCPDF for PDF, tc-lib-barcode for QR)
 - **GLPI 10 and 11** — fully compatible with both versions (Symfony LegacyFileLoadController support)
@@ -49,9 +50,10 @@ Each label contains:
 
 | Tape size | Label dimensions | QR code | Best for |
 |-----------|-----------------|---------|----------|
-| 25mm | 70 × 25 mm | 18 mm | Small devices, compact labels |
-| 36mm | 80 × 36 mm | 26 mm | Standard use (default) |
-| 50mm | 90 × 50 mm | 36 mm | Large labels, easy scanning |
+| 24mm | 70 × 24 mm | 13 mm | Brother 24 mm tape, compact labels |
+| 25mm | 70 × 25 mm | 14 mm | Small devices, compact labels |
+| 36mm | 80 × 36 mm | 15 mm | Standard use (default) |
+| 50mm | 90 × 50 mm | 26 mm | Large labels, easy scanning |
 
 ## Screenshot
 
@@ -82,12 +84,15 @@ Setup → Plugins → QR Code Label (gear icon) → set defaults, upload logo.
 
 After enabling the plugin:
 
-1. Go to **Setup → Plugins** → click the gear icon next to "QR Code Label"
-2. Configure global settings:
-   - **Printer type** — Sheet (A4 grid) or Label (Brother QL, Dymo...)
+1. **Grant rights** — go to **Administration → Profiles**, open a profile (e.g. *Super-Admin*, *Technician*), open the **QR Code Label** tab and enable *Generate QR labels* and/or *Manage configuration*. Users only see the menu once a right is granted.
+2. Open the configuration screen — **Tools → QR Code Label** (or the gear icon in *Setup → Plugins*). Requires the *Manage configuration* right.
+3. Configure global settings:
+   - **Output format** — PDF (A4 sheet), PNG (Brother P-Touch Cube), or both
+   - **Tape size, color mode, page size, orientation** — defaults for new print profiles
+   - **Show inventory date / Show location** — toggle the optional label lines
    - **Owner text** — e.g. "Property of: My Company" (displayed on each label)
-3. **Upload a company logo** (PNG format, displayed top-right of each label)
-4. **Create print profiles** — each profile stores:
+4. **Upload a company logo** (PNG/JPEG/GIF; rendered above the QR code, recolored to match the chosen color mode)
+5. **Create print profiles** — each profile stores:
    - Tape size (25mm, 36mm, 50mm)
    - Color mode (Black & White, Monochrome, Color, Inverse, Inverse Mono)
    - Show inventory date (Yes/No)
@@ -103,16 +108,16 @@ After enabling the plugin:
 
 1. Open any supported asset (Computer, Monitor, etc.)
 2. Click the **QR Label** tab
-3. Select a print profile and number of copies
-4. Click **Generate** → a download link appears
+3. Select a print profile
+4. Click **Generate** → a download link appears (re-run for more copies)
 
 ### Print labels in bulk
 
 1. Go to any asset list (e.g. Assets → Computers)
 2. Select the items you want labels for
 3. Click **Actions** → choose **QR Code Label - Print QR labels**
-4. Select a print profile (+ optionally skip N first labels for partial sheets)
-5. Click **Generate** → download the PDF
+4. Select a print profile
+5. Click **Generate** → download the result (PDF sheet, single PNG, or a ZIP of PNGs depending on the output format)
 
 ## Technical Details
 
@@ -124,6 +129,32 @@ After enabling the plugin:
 - **Rights**: `plugin_qrcodelabel_label` (CREATE) + `plugin_qrcodelabel_config` (UPDATE)
 - **Security**: Input whitelist validation, logo upload verification (`getimagesize`), no raw POST to DB
 - **PHP**: 7.4 – 8.4
+
+## Changelog
+
+### 1.4.5
+- **Security** — the label/logo download endpoint is now restricted to the plugin's own document folder and to image files only (no more arbitrary-file fallback).
+- **Security** — the *Generate labels* massive action now enforces the `plugin_qrcodelabel_label` right.
+- Configuration screens are gated on the plugin's own `plugin_qrcodelabel_config` right instead of the GLPI core *config* right, so a **Technician** profile can be allowed to manage settings without full setup rights.
+- Intermediate QR/logo temp files are isolated per user (no cross-user cleanup races).
+
+### 1.4.4
+- **Fix** — the **QR Code Label** rights tab now appears on profile forms (*Administration → Profiles*), so admins can grant plugin access to any profile (Technician, etc.). Previously the tab was missing on every profile.
+
+### 1.4.3
+- Logo-above-QR layout; Brother tape tuning.
+
+### 1.4.2
+- Optional location display.
+
+### 1.4.1
+- Bundled Noto Sans font; removed the unused `printer_type` setting.
+
+### 1.4.0
+- Global output format (PDF / PNG / both); Brother tape tuning.
+
+### 1.3.x
+- PNG export for Brother P-Touch Cube (1.3.0); CSRF hotfix (1.3.1).
 
 ## Contributing
 

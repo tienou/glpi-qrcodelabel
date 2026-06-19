@@ -63,7 +63,9 @@ function plugin_init_qrcodelabel() {
    $PLUGIN_HOOKS['csrf_compliant']['qrcodelabel'] = true;
 
    // Register the Profile tab so admins can grant rights per profile.
-   // GLPI 11 removed Plugin::registerClass(); src/ classes are PSR-4 autoloaded there.
+   // Plugin::registerClass(..., ['addtabon' => [...]]) is supported on both GLPI
+   // 10 and 11 (it delegates to CommonGLPI::registerStandardTab); the
+   // method_exists() guard is purely defensive.
    if (method_exists('Plugin', 'registerClass')) {
       Plugin::registerClass(Profile::class, ['addtabon' => ['Profile']]);
    }
