@@ -132,6 +132,9 @@ After enabling the plugin:
 
 ## Changelog
 
+### 1.4.6
+- Internal: migrated `$PLUGIN_HOOKS` registrations to the `\Glpi\Plugin\Hooks` class constants (GLPI 10/11 best practice). No behaviour change.
+
 ### 1.4.5
 - **Security** — the label/logo download endpoint is now restricted to the plugin's own document folder and to image files only (no more arbitrary-file fallback).
 - **Security** — the *Generate labels* massive action now enforces the `plugin_qrcodelabel_label` right.

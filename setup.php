@@ -35,10 +35,11 @@
    ------------------------------------------------------------------------
  */
 
+use Glpi\Plugin\Hooks;
 use GlpiPlugin\Qrcodelabel\Label;
 use GlpiPlugin\Qrcodelabel\Profile;
 
-define("PLUGIN_QRCODELABEL_VERSION", "1.4.5");
+define("PLUGIN_QRCODELABEL_VERSION", "1.4.6");
 
 // Minimal GLPI version, inclusive
 define('PLUGIN_QRCODELABEL_MIN_GLPI', '10.0.0');
@@ -60,7 +61,7 @@ define('PLUGIN_QRCODELABEL_ITEMTYPES', [
 function plugin_init_qrcodelabel() {
    global $PLUGIN_HOOKS;
 
-   $PLUGIN_HOOKS['csrf_compliant']['qrcodelabel'] = true;
+   $PLUGIN_HOOKS[Hooks::CSRF_COMPLIANT]['qrcodelabel'] = true;
 
    // Register the Profile tab so admins can grant rights per profile.
    // Plugin::registerClass(..., ['addtabon' => [...]]) is supported on both GLPI
@@ -73,20 +74,20 @@ function plugin_init_qrcodelabel() {
    if (Session::haveRight('plugin_qrcodelabel_label', CREATE)
          || Session::haveRight('plugin_qrcodelabel_config', UPDATE)) {
 
-      $PLUGIN_HOOKS['pre_item_purge']['qrcodelabel']
+      $PLUGIN_HOOKS[Hooks::PRE_ITEM_PURGE]['qrcodelabel']
          = ['Profile' => [Profile::class, 'cleanProfiles']];
 
       // Massive Action
-      $PLUGIN_HOOKS['use_massive_action']['qrcodelabel'] = 1;
+      $PLUGIN_HOOKS[Hooks::USE_MASSIVE_ACTION]['qrcodelabel'] = 1;
 
       // Menu registration
-      $PLUGIN_HOOKS['menu_toadd']['qrcodelabel'] = ['tools' => Label::class];
-      $PLUGIN_HOOKS['helpdesk_menu_entry']['qrcodelabel'] = false;
+      $PLUGIN_HOOKS[Hooks::MENU_TOADD]['qrcodelabel'] = ['tools' => Label::class];
+      $PLUGIN_HOOKS[Hooks::HELPDESK_MENU_ENTRY]['qrcodelabel'] = false;
    }
 
    // Config page
    if (Session::haveRight('config', UPDATE)) {
-      $PLUGIN_HOOKS['config_page']['qrcodelabel'] = 'front/config.php';
+      $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['qrcodelabel'] = 'front/config.php';
    }
 }
 
