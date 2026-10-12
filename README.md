@@ -10,17 +10,18 @@ Generate rich inventory labels with QR codes directly from GLPI. Designed for Br
 
 ## Features
 
-- **QR codes identical to GLPI native** — uses the same `tc-lib-barcode` library with `QRCODE,H` as GLPI's built-in `BarcodeManager`
+- **QR codes like GLPI native** — same URL and `QRCODE,H` error correction as GLPI's built-in `BarcodeManager` (GLPI 11 `tc-lib-barcode`; TCPDF's QR encoder on GLPI 10, which does not ship `tc-lib-barcode`)
 - **Rich labels** — QR code + asset name + type + serial number + location + inventory date + company logo + owner text
 - **4 tape sizes** — 24mm, 25mm, 36mm, 50mm with automatic layout adaptation
 - **5 color modes** — Black & White, Monochrome, Color, Inverse (white on black), Inverse Mono
 - **PDF or PNG output** — A4 label sheets (PDF) or one PNG per asset for Brother P-Touch Cube (via iPrint&Label); set globally as PDF, PNG, or both
 - **Print profiles** — create reusable profiles (tape size, color, page format) in admin config, select one at print time
-- **Single item** — "QR Label" tab on each asset page with print-profile selection
-- **Bulk generation** — Massive Action on asset lists, just pick a profile and print
+- **Single item** — "QR Label" tab on each asset page with print-profile selection and number of copies
+- **Bulk generation** — Massive Action on asset lists, just pick a profile (and a number of copies) and print
+- **Download page** — after *Generate*, a page keeps the download buttons on screen (no more short-lived notification link)
 - **Zero dependencies** — uses only GLPI's bundled libraries (TCPDF for PDF, tc-lib-barcode for QR)
 - **GLPI 10 and 11** — fully compatible with both versions (Symfony LegacyFileLoadController support)
-- **GLPI Cloud compatible** — no filesystem dependencies, ephemeral PDF with auto-cleanup
+- **GLPI Cloud compatible** — no filesystem dependencies, ephemeral files with auto-cleanup
 - **Multilingual** — French and English included, extensible via .po files
 
 ## Supported Asset Types
@@ -31,6 +32,7 @@ Generate rich inventory labels with QR codes directly from GLPI. Designed for Br
 - Network Equipment
 - Printer
 - Phone
+- **GLPI 11 custom assets** (*Setup → Asset definitions*): every active definition gets the tab and the massive action
 
 ## Label Format
 
@@ -93,7 +95,7 @@ After enabling the plugin:
    - **Owner text** — e.g. "Property of: My Company" (displayed on each label)
 4. **Upload a company logo** (PNG/JPEG/GIF; rendered above the QR code, recolored to match the chosen color mode)
 5. **Create print profiles** — each profile stores:
-   - Tape size (25mm, 36mm, 50mm)
+   - Tape size (24mm, 25mm, 36mm, 50mm)
    - Color mode (Black & White, Monochrome, Color, Inverse, Inverse Mono)
    - Show inventory date (Yes/No)
    - Page size (A4, A3, Letter, Legal)
@@ -108,22 +110,22 @@ After enabling the plugin:
 
 1. Open any supported asset (Computer, Monitor, etc.)
 2. Click the **QR Label** tab
-3. Select a print profile
-4. Click **Generate** → a download link appears (re-run for more copies)
+3. Select a print profile and the number of copies (PDF)
+4. Click **Generate** → a page with the download button(s) opens
 
 ### Print labels in bulk
 
 1. Go to any asset list (e.g. Assets → Computers)
 2. Select the items you want labels for
 3. Click **Actions** → choose **QR Code Label - Print QR labels**
-4. Select a print profile
-5. Click **Generate** → download the result (PDF sheet, single PNG, or a ZIP of PNGs depending on the output format)
+4. Select a print profile and the number of copies (PDF)
+5. Click **Generate** → a page with the download button(s) opens (PDF sheet, single PNG, or a ZIP of PNGs depending on the output format)
 
 ## Technical Details
 
 - **PDF engine**: GLPI's native TCPDF (`vendor/tecnickcom/tcpdf/`) — no external dependencies
-- **QR rendering**: `Com\Tecnick\Barcode\Barcode` (`QRCODE,H`) — same library and params as GLPI's `BarcodeManager`, rendered as high-res PNG via GD (10px/module, 300 DPI)
-- **PDF delivery**: Ephemeral token system — PDF exists only during download, auto-deleted after
+- **QR rendering**: `Com\Tecnick\Barcode\Barcode` (`QRCODE,H`, GLPI 11) or `TCPDF2DBarcode` (`QRCODE,H`, GLPI 10), rendered as high-res PNG via GD (10px/module, 300 DPI)
+- **File delivery**: Ephemeral session-bound token — each file can be downloaded once and is deleted after download (undownloaded files are purged after one hour)
 - **GLPI 11 compatibility**: Respects Symfony's `LegacyFileLoadController` buffer (no `ob_end_clean`, no `exit`)
 - **Database**: `glpi_plugin_qrcodelabel_configs` (global settings) + `glpi_plugin_qrcodelabel_printprofiles` (print profiles)
 - **Rights**: `plugin_qrcodelabel_label` (CREATE) + `plugin_qrcodelabel_config` (UPDATE)
@@ -131,6 +133,15 @@ After enabling the plugin:
 - **PHP**: 7.4 – 8.4
 
 ## Changelog
+
+### 1.5.0
+- **Fix (#4)** — HTTP 500 on every plugin page with GLPI 10 (`Class "Session" not found`): the `front/` scripts did not bootstrap GLPI 10 (GLPI 11 does it through its Symfony kernel).
+- **Fix** — label generation always failed on GLPI 10 (`Com\Tecnick\Barcode\Barcode` is only bundled with GLPI 11): falls back to TCPDF's own QR encoder.
+- **Fix (#3)** — the *QR Label* tab was never registered on asset forms since 1.2.0; *Generate* now opens a page that keeps the download buttons on screen (the link used to live in a notification that vanished after a few seconds); *Number of copies* is back (PDF).
+- **Fix (#2)** — 24 mm (and 25 mm) labels now print every enabled field (inventory date, location, owner text, inventory number): the text block adapts its spacing/size and shortens long values with an ellipsis. Also fixes the location / owner text overlap on 36 mm.
+- **New (#1)** — GLPI 11 custom assets: tab + massive action on every active asset definition.
+- **Security** — labels can only be generated for items the user can read (entity check); purging a profile no longer wipes the plugin rights of every other profile; HTML escaping on the configuration page; uploaded logos are re-encoded as real PNG (a JPEG/GIF logo broke PDF generation).
+- Massive action reports per-item results; menu and gear icon follow the plugin's *Manage configuration* right; missing translations added.
 
 ### 1.4.6
 - Internal: migrated `$PLUGIN_HOOKS` registrations to the `\Glpi\Plugin\Hooks` class constants (GLPI 10/11 best practice). No behaviour change.
