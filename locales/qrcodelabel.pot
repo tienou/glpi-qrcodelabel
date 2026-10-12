@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: GLPI Plugin QR Code Label 1.0.0\n"
+"Project-Id-Version: GLPI Plugin QR Code Label 1.5.0\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-03-27 12:00+0100\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
@@ -15,25 +15,73 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+msgid "Print profile updated."
+msgstr ""
+
+msgid "Print profile deleted."
+msgstr ""
+
+msgid "Print profile added."
+msgstr ""
+
+msgid "Profile name is required."
+msgstr ""
+
+msgid "The logo has been removed."
+msgstr ""
+
+msgid "Logo uploaded successfully."
+msgstr ""
+
+msgid "The logo could not be saved."
+msgstr ""
+
+msgid "Invalid file: only PNG, JPEG and GIF images are accepted."
+msgstr ""
+
+msgid "Configuration saved."
+msgstr ""
+
 msgid "QR Code Label"
 msgstr ""
 
-msgid "QR Code Labels"
+msgid "File not found."
+msgstr ""
+
+msgid "Invalid request."
+msgstr ""
+
+msgid "Unsupported item type."
+msgstr ""
+
+msgid "Item not found."
+msgstr ""
+
+msgid "No print profile found."
+msgstr ""
+
+msgid "Label generation failed."
+msgstr ""
+
+msgid "The requested file no longer exists or has already been downloaded."
+msgstr ""
+
+msgid "Unauthorized access to this file"
 msgstr ""
 
 msgid "Print QR labels"
 msgstr ""
 
-msgid "Download QR labels"
+msgid "GD extension is required for QR code and logo image processing."
 msgstr ""
 
-msgid "Generate"
+msgid "QR Code Label - Configuration"
 msgstr ""
 
-msgid "Tape size"
+msgid "Default tape size"
 msgstr ""
 
-msgid "Color mode"
+msgid "Default color mode"
 msgstr ""
 
 msgid "Black & White"
@@ -51,19 +99,16 @@ msgstr ""
 msgid "Inverse Mono"
 msgstr ""
 
-msgid "Owner text"
-msgstr ""
-
-msgid "e.g. Property of: My Company"
-msgstr ""
-
 msgid "Show inventory date"
 msgstr ""
 
-msgid "Page size"
+msgid "Show location"
 msgstr ""
 
-msgid "Orientation"
+msgid "Default page size"
+msgstr ""
+
+msgid "Default orientation"
 msgstr ""
 
 msgid "Portrait"
@@ -72,22 +117,22 @@ msgstr ""
 msgid "Landscape"
 msgstr ""
 
-msgid "Skip first N labels"
+msgid "Owner text"
 msgstr ""
 
-msgid "QR Code Label - Configuration"
+msgid "e.g. Property of: My Company"
 msgstr ""
 
-msgid "Default tape size"
+msgid "Output format"
 msgstr ""
 
-msgid "Default color mode"
+msgid "PDF (label sheet)"
 msgstr ""
 
-msgid "Default page size"
+msgid "PNG (Brother P-Touch Cube)"
 msgstr ""
 
-msgid "Default orientation"
+msgid "Both (PDF + PNG)"
 msgstr ""
 
 msgid "Company logo"
@@ -99,47 +144,77 @@ msgstr ""
 msgid "Upload logo"
 msgstr ""
 
-msgid "The logo has been removed."
+msgid "Print profiles"
 msgstr ""
 
-msgid "Logo uploaded successfully."
+msgid "Tape size"
 msgstr ""
 
-msgid "Configuration saved."
+msgid "Color mode"
+msgstr ""
+
+msgid "Page size"
+msgstr ""
+
+msgid "Orientation"
+msgstr ""
+
+msgid "Default"
+msgstr ""
+
+msgid "Add a print profile"
+msgstr ""
+
+msgid "QR Code Labels"
+msgstr ""
+
+msgid "QR Label"
+msgstr ""
+
+msgid "Print profile"
+msgstr ""
+
+msgid "No print profile configured."
+msgstr ""
+
+msgid "Number of copies"
+msgstr ""
+
+msgid "Generate QR label"
+msgstr ""
+
+msgid "Generate"
+msgstr ""
+
+msgid "Download QR labels (PDF)"
+msgstr ""
+
+msgid "Download QR labels (ZIP of PNGs)"
+msgstr ""
+
+msgid "Download QR label (PNG)"
+msgstr ""
+
+msgid "No label file is waiting for download. Generate the labels again."
+msgstr ""
+
+msgid "Your labels are ready:"
+msgstr ""
+
+msgid "Each file can be downloaded once; generate the labels again if needed."
+msgstr ""
+
+msgid "TCPDF not found in GLPI vendor directory."
+msgstr ""
+
+msgid "No TTF font available for PNG export. Install fonts-liberation or fonts-dejavu, or drop a TTF in plugins/qrcodelabel/fonts/."
+msgstr ""
+
+msgid "PHP zip extension is required for multi-label PNG export."
 msgstr ""
 
 msgid "Manage configuration"
 msgstr ""
 
 msgid "Generate QR labels"
-msgstr ""
-
-msgid "TCPDF not found in GLPI vendor directory."
-msgstr ""
-
-msgid "The requested file no longer exists or has already been downloaded."
-msgstr ""
-
-msgid "Unauthorized access to this file"
-msgstr ""
-
-msgid "QR Label"
-msgstr ""
-
-msgid "Generate QR label"
-msgstr ""
-
-msgid "Number of copies"
-msgstr ""
-
-msgid "Invalid request."
-msgstr ""
-
-msgid "Unsupported item type."
-msgstr ""
-
-msgid "Item not found."
-msgstr ""
-
-msgid "PDF generation failed."
 msgstr ""
