@@ -12,6 +12,13 @@
    Compatible with GLPI 10 and GLPI 11.
  */
 
+// GLPI 10 serves plugin front files as plain PHP scripts: bootstrap GLPI here.
+// GLPI 11 has already booted through its Symfony kernel (LegacyFileLoadController)
+// and defined GLPI_ROOT.
+if (!defined('GLPI_ROOT')) {
+   include __DIR__ . '/../../../inc/includes.php';
+}
+
 Session::checkLoginUser();
 
 if (empty($_GET['file'])) {

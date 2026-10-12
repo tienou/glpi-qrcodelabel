@@ -203,3 +203,27 @@ msgstr "PHP zip extension is required for multi-label PNG export."
 
 msgid "Show location"
 msgstr "Show location"
+
+msgid "Print profile updated."
+msgstr "Print profile updated."
+
+msgid "The logo could not be saved."
+msgstr "The logo could not be saved."
+
+msgid "Invalid file: only PNG, JPEG and GIF images are accepted."
+msgstr "Invalid file: only PNG, JPEG and GIF images are accepted."
+
+msgid "File not found."
+msgstr "File not found."
+
+msgid "GD extension is required for QR code and logo image processing."
+msgstr "GD extension is required for QR code and logo image processing."
+
+msgid "No label file is waiting for download. Generate the labels again."
+msgstr "No label file is waiting for download. Generate the labels again."
+
+msgid "Your labels are ready:"
+msgstr "Your labels are ready:"
+
+msgid "Each file can be downloaded once; generate the labels again if needed."
+msgstr "Each file can be downloaded once; generate the labels again if needed."

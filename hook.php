@@ -17,14 +17,18 @@ use GlpiPlugin\Qrcodelabel\Profile;
  */
 function plugin_qrcodelabel_MassiveActions($itemtype) {
 
-   $action = Label::class . MassiveAction::CLASS_ACTION_SEPARATOR . 'GenerateLabels';
-   $label  = '<i class="fas fa-qrcode"></i> '
-           . __('QR Code Label', 'qrcodelabel') . ' - '
-           . __('Print QR labels', 'qrcodelabel');
-
-   if (!in_array($itemtype, PLUGIN_QRCODELABEL_ITEMTYPES, true)) {
+   if (!plugin_qrcodelabel_is_supported_itemtype($itemtype)
+         || !Session::haveRight('plugin_qrcodelabel_label', CREATE)) {
       return [];
    }
+
+   $action = Label::class . MassiveAction::CLASS_ACTION_SEPARATOR . 'GenerateLabels';
+   $label  = '<i class="fas fa-qrcode"></i> '
+           . htmlspecialchars(
+              __('QR Code Label', 'qrcodelabel') . ' - ' . __('Print QR labels', 'qrcodelabel'),
+              ENT_QUOTES,
+              'UTF-8'
+           );
 
    return [$action => $label];
 }

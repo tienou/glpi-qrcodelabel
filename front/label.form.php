@@ -8,115 +8,69 @@
    LICENSE: AGPL License 3.0 or (at your option) any later version
    ------------------------------------------------------------------------
 
-   Handles single-item and multi-item label generation from the asset tab.
-   Receives POST with itemtype + items_id (single) or from massive action.
+   Handles single-item label generation from the "QR Label" asset tab.
+   Receives POST with itemtype + items_id + profile_id + nb_copies.
  */
 
 use GlpiPlugin\Qrcodelabel\Config;
 use GlpiPlugin\Qrcodelabel\Label;
 use GlpiPlugin\Qrcodelabel\Printprofile;
 
-// GLPI 11: bootstrap is handled by Symfony LegacyFileLoadController.
+// GLPI 10 serves plugin front files as plain PHP scripts: bootstrap GLPI here
+// (this also validates the CSRF token of the POST). GLPI 11 has already booted
+// through its Symfony kernel (LegacyFileLoadController) and defined GLPI_ROOT.
+if (!defined('GLPI_ROOT')) {
+   include __DIR__ . '/../../../inc/includes.php';
+}
 
 Session::checkLoginUser();
 Session::checkRight('plugin_qrcodelabel_label', CREATE);
-// CSRF is auto-validated by GLPI (plugin declares csrf_compliant=true).
 
-global $CFG_GLPI;
+$itemtype = (string)($_POST['itemtype'] ?? '');
+$items_id = (int)($_POST['items_id'] ?? 0);
 
-$itemtype  = $_POST['itemtype']  ?? '';
-$items_id  = (int)($_POST['items_id'] ?? 0);
-
-// Load print profile from DB
-$profileId = (int)($_POST['profile_id'] ?? 0);
-$profile   = Printprofile::getProfileById($profileId);
-if (!$profile) {
-   // Fallback to default profile
-   $profile = Printprofile::getDefault();
+if ($itemtype === '' || $items_id <= 0) {
+   Session::addMessageAfterRedirect(__('Invalid request.', 'qrcodelabel'), false, ERROR);
+   Html::back();
 }
+
+if (!plugin_qrcodelabel_is_supported_itemtype($itemtype)) {
+   Session::addMessageAfterRedirect(__('Unsupported item type.', 'qrcodelabel'), false, ERROR);
+   Html::back();
+}
+
+$item = getItemForItemtype($itemtype);
+if (!($item instanceof CommonDBTM) || !$item->getFromDB($items_id)) {
+   Session::addMessageAfterRedirect(__('Item not found.', 'qrcodelabel'), false, ERROR);
+   Html::back();
+}
+// Entity / visibility check: never print data the user cannot read.
+if (!$item->can($items_id, READ)) {
+   Session::addMessageAfterRedirect(__('Item not found.', 'qrcodelabel'), false, ERROR);
+   Html::back();
+}
+
+$profile = Printprofile::getProfileById((int)($_POST['profile_id'] ?? 0))
+   ?? Printprofile::getDefault();
 if (!$profile) {
    Session::addMessageAfterRedirect(__('No print profile found.', 'qrcodelabel'), false, ERROR);
    Html::back();
-   return;
 }
 
-$tapeSize  = $profile['tape_size'];
-$colorMode = $profile['color_mode'];
-// owner_text + output_format come from global config, not from the profile
-$config    = Config::getConfig();
-$ownerText = trim($config['owner_text'] ?? '');
-$format    = in_array($config['output_format'] ?? 'pdf', ['pdf', 'png', 'both'], true)
-   ? $config['output_format'] : 'pdf';
+$config = Config::getConfig();
+$copies = Label::sanitizeCopies($_POST['nb_copies'] ?? 1);
+$assets = array_fill(0, $copies, Label::buildAssetData($item));
 
-if (!$itemtype || !$items_id) {
-   Session::addMessageAfterRedirect(__('Invalid request.', 'qrcodelabel'), false, ERROR);
-   Html::back();
-   return;
-}
-
-if (!in_array($itemtype, PLUGIN_QRCODELABEL_ITEMTYPES, true)) {
-   Session::addMessageAfterRedirect(__('Unsupported item type.', 'qrcodelabel'), false, ERROR);
-   Html::back();
-   return;
-}
-
-/** @var CommonDBTM $item */
-$item = new $itemtype();
-if (!$item->getFromDB($items_id)) {
-   Session::addMessageAfterRedirect(__('Item not found.', 'qrcodelabel'), false, ERROR);
-   Html::back();
-   return;
-}
-
-// Build URL exactly as GLPI native QR does
-$url = $CFG_GLPI['url_base'] . $itemtype::getFormURLWithID($items_id, false);
-
-// Get location
-$location = '';
-if ($item->isField('locations_id') && $item->fields['locations_id'] > 0) {
-   $loc = new Location();
-   if ($loc->getFromDB($item->fields['locations_id'])) {
-      $location = $loc->fields['completename'] ?? $loc->fields['name'] ?? '';
-   }
-}
-
-// Inventory date
-$dateInv = '';
-$dateRaw = $item->fields['date_creation'] ?? '';
-if ($dateRaw) {
-   // Format YYYY-MM-DD → DD/MM/YYYY
-   $ymd = explode('-', substr($dateRaw, 0, 10));
-   $dateInv = (count($ymd) === 3) ? "{$ymd[2]}/{$ymd[1]}/{$ymd[0]}" : substr($dateRaw, 0, 10);
-}
-
-$assetData = [
-   'itemtype'    => $itemtype,
-   'id'          => $items_id,
-   'name'        => $item->fields['name'] ?? __('No name'),
-   'serial'      => $item->fields['serial'] ?? '',
-   'otherserial' => $item->fields['otherserial'] ?? '',
-   'type_label'  => $itemtype::getTypeName(1),
-   'location'    => $location,
-   'date_inv'    => $dateInv,
-   'url'         => $url,
-];
-
-// Always 1 label per click (users re-run for more copies)
-$assets = [$assetData];
-
-$params = [
-   'tape_size'     => $tapeSize,
-   'color_mode'    => $colorMode,
-   'owner_text'    => $ownerText,
-   'show_date'     => (bool)$profile['show_date'],
-   'show_location' => (bool)($config['show_location'] ?? 0),
-   'page_size'     => $profile['page_size'],
-   'orientation'   => $profile['orientation'],
-];
-
-$ok = Label::emitDownloadLinks($assets, $params, $format);
+$ok = Label::emitDownloadLinks(
+   $assets,
+   Label::buildParams($profile, $config),
+   Label::getOutputFormat($config),
+   Html::getBackUrl()
+);
 if (!$ok) {
    Session::addMessageAfterRedirect(__('Label generation failed.', 'qrcodelabel'), false, ERROR);
+   Html::back();
 }
 
-Html::back();
+// Post/Redirect/Get to a page that keeps the download buttons on screen.
+Html::redirect(Label::getWebPath() . '/front/download.php');

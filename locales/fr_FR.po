@@ -203,3 +203,27 @@ msgstr "L'extension PHP zip est requise pour l'export PNG multi-étiquettes."
 
 msgid "Show location"
 msgstr "Afficher le lieu"
+
+msgid "Print profile updated."
+msgstr "Profil d'impression mis à jour."
+
+msgid "The logo could not be saved."
+msgstr "Le logo n'a pas pu être enregistré."
+
+msgid "Invalid file: only PNG, JPEG and GIF images are accepted."
+msgstr "Fichier invalide : seules les images PNG, JPEG et GIF sont acceptées."
+
+msgid "File not found."
+msgstr "Fichier introuvable."
+
+msgid "GD extension is required for QR code and logo image processing."
+msgstr "L'extension PHP GD est requise pour générer les QR codes et traiter le logo."
+
+msgid "No label file is waiting for download. Generate the labels again."
+msgstr "Aucun fichier d'étiquettes en attente de téléchargement. Relancez la génération."
+
+msgid "Your labels are ready:"
+msgstr "Vos étiquettes sont prêtes :"
+
+msgid "Each file can be downloaded once; generate the labels again if needed."
+msgstr "Chaque fichier ne peut être téléchargé qu'une fois ; relancez la génération si besoin."

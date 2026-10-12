@@ -69,8 +69,24 @@ class Profile extends CommonGLPI {
       echo "</div>";
    }
 
+   /**
+    * Remove this plugin's rights for ONE purged profile.
+    *
+    * No longer registered as a pre_item_purge hook (GLPI core already deletes the
+    * purged profile's glpi_profilerights rows). Kept for backward compatibility:
+    * before 1.5.0 it called removeRights(), which wiped the plugin's rights of
+    * EVERY profile whenever any profile was purged.
+    */
    static function cleanProfiles($item) {
-      self::removeRights();
+      global $DB;
+
+      if (!($item instanceof GlpiProfile) || $item->getID() <= 0) {
+         return;
+      }
+      $DB->delete('glpi_profilerights', [
+         'profiles_id' => $item->getID(),
+         'name'        => array_column(self::getAllRights(), 'field'),
+      ]);
    }
 
    static function getAllRights() {
