@@ -24,55 +24,60 @@ use Session;
  * Main class for QR Code Label generation using GLPI's native TCPDF.
  *
  * Generates rich inventory labels: QR code + asset name + type + serial number
- * + inventory date + company logo + owner text.
+ * + inventory date + location + company logo + owner text.
  *
  * No external vendor dependencies — TCPDF ships with GLPI 10 and 11.
- * QR codes are rendered as native vector paths (write2DBarcode).
  */
 class Label extends CommonDBTM {
 
    static $rightname = 'plugin_qrcodelabel_label';
 
+   /** Maximum number of copies per asset (PDF sheet). */
+   public const MAX_COPIES = 50;
+
    /**
     * Label layout presets per tape size (mm).
-    * Ported from the Python GUI application.
+    *
+    * Left column: top_m + logo_h + 0.5 (gap) + qr_size ≈ label_h - bottom margin.
+    * Text column (see layoutText()):
+    *   - name_base   : baseline of the first line (asset name), in mm from the top
+    *   - text_top    : highest position allowed for the top of the first line when
+    *                   the text needs more room (Brother unprintable zone)
+    *   - bottom_base : baseline of the last line (owner text / inventory number)
     */
-   // Layout (v1.4.3+): logo sits ABOVE the QR code on the left column, freeing
-   // the entire text area on the right for a full-width name line.
-   // Vertical layout per tape: top_m + logo_h + 1 (gap) + qr_size + bot_m = label_h
-   // Larger top/bottom margins (3–4 mm) cover the Brother tape unprintable zone.
    private static array $tapeSizes = [
-      // Layout math per tape: top_m + logo_h + 0.5 (gap) + qr_size + bot_m ≈ label_h
-      // Margins (3 mm top + bottom) cover the Brother tape unprintable zone.
       '24mm' => [
          'label_w' => 70, 'label_h' => 24, 'qr_size' => 13,
          'font_name' => 7, 'font_type' => 4.5, 'font_sn' => 5,
          'font_loc' => 4.5, 'font_inv' => 4,
          'logo_h' => 5, 'top_m' => 2, 'bot_m' => 3,
+         'name_base' => 7, 'text_top' => 3.2, 'bottom_base' => 20.5,
       ],
       '25mm' => [
          'label_w' => 70, 'label_h' => 25, 'qr_size' => 14,
          'font_name' => 7.5, 'font_type' => 5, 'font_sn' => 5.5,
          'font_loc' => 5, 'font_inv' => 4.5,
          'logo_h' => 5, 'top_m' => 2, 'bot_m' => 3,
+         'name_base' => 7, 'text_top' => 3.2, 'bottom_base' => 21.5,
       ],
       '36mm' => [
          'label_w' => 80, 'label_h' => 36, 'qr_size' => 15,
          'font_name' => 9, 'font_type' => 5.5, 'font_sn' => 6.5,
          'font_loc' => 6, 'font_inv' => 5.5,
          'logo_h' => 13, 'top_m' => 3, 'bot_m' => 3,
+         'name_base' => 10, 'text_top' => 4, 'bottom_base' => 30,
       ],
       '50mm' => [
          'label_w' => 90, 'label_h' => 50, 'qr_size' => 26,
          'font_name' => 11, 'font_type' => 7, 'font_sn' => 8,
          'font_loc' => 7, 'font_inv' => 6.5,
          'logo_h' => 16, 'top_m' => 4, 'bot_m' => 3,
+         'name_base' => 12, 'text_top' => 4, 'bottom_base' => 44,
       ],
    ];
 
    /**
     * Color themes.
-    * Each key maps to: [bg_rgb, qr_fg, qr_bg, text_main, text_sub, text_sn, text_loc, text_inv]
     */
    private static array $colorModes = [
       'bw' => [
@@ -113,8 +118,27 @@ class Label extends CommonDBTM {
       return __('QR Code Labels', 'qrcodelabel');
    }
 
+   /**
+    * Web path of the plugin (e.g. "/plugins/qrcodelabel").
+    *
+    * GLPI 11 serves every plugin under /plugins/ and deprecates
+    * Plugin::getWebDir(); GLPI 10 needs it (plugins/ or marketplace/).
+    *
+    * @param bool $full Prefix with GLPI root_doc.
+    */
+   static function getWebPath(bool $full = true): string {
+      global $CFG_GLPI;
+
+      if (version_compare(GLPI_VERSION, '11.0.0-dev', '>=')) {
+         $path = '/plugins/qrcodelabel';
+      } else {
+         $path = '/' . ltrim((string)Plugin::getWebDir('qrcodelabel', false), '/');
+      }
+      return $full ? rtrim((string)$CFG_GLPI['root_doc'], '/') . $path : $path;
+   }
+
    static function getMenuContent(): array {
-      $webDir = Plugin::getWebDir('qrcodelabel', false);
+      $webDir = self::getWebPath(false);
       return [
          'title' => self::getTypeName(),
          'page'  => $webDir . '/front/config.php',
@@ -125,14 +149,57 @@ class Label extends CommonDBTM {
       ];
    }
 
+   /**
+    * GLPI 10 stores user input HTML-encoded ("sanitized"); labels must show the
+    * raw text. GLPI 11 stores raw values (and deprecates the Sanitizer).
+    */
+   static function rawText($value): string {
+      $value = (string)$value;
+      if ($value !== ''
+            && version_compare(GLPI_VERSION, '11.0.0-dev', '<')
+            && class_exists('Glpi\\Toolbox\\Sanitizer')) {
+         $value = (string)\Glpi\Toolbox\Sanitizer::unsanitize($value, false);
+      }
+      return $value;
+   }
+
+   /** HTML-escape for output in attributes and text nodes. */
+   private static function e($value): string {
+      return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+   }
+
+   /** Release a GD image (no-op since PHP 8, deprecated in PHP 8.5). */
+   private static function freeImage($img): void {
+      if (PHP_VERSION_ID < 80000 && is_resource($img)) {
+         imagedestroy($img);
+      }
+   }
+
+   /**
+    * Number of copies requested in a form, bounded to [1, MAX_COPIES].
+    */
+   static function sanitizeCopies($value): int {
+      return max(1, min(self::MAX_COPIES, (int)$value));
+   }
+
+   /**
+    * Output format configured globally (pdf / png / both).
+    */
+   static function getOutputFormat(?array $config = null): string {
+      $config = $config ?? Config::getConfig();
+      $format = $config['output_format'] ?? 'pdf';
+      return in_array($format, ['pdf', 'png', 'both'], true) ? $format : 'pdf';
+   }
+
    // ── Tab on asset forms (single-item label generation) ────────────────────
 
    /**
     * Show a "QR Label" tab on each supported asset type.
     */
    function getTabNameForItem(CommonGLPI $item, $withtemplate = 0) {
-      if (in_array($item->getType(), PLUGIN_QRCODELABEL_ITEMTYPES, true)
+      if (plugin_qrcodelabel_is_supported_itemtype($item->getType())
             && $item->getID() > 0
+            && !$withtemplate
             && Session::haveRight(self::$rightname, CREATE)) {
          return self::createTabEntry(__('QR Label', 'qrcodelabel'));
       }
@@ -140,34 +207,26 @@ class Label extends CommonDBTM {
    }
 
    static function displayTabContentForItem(CommonGLPI $item, $tabnum = 1, $withtemplate = 0) {
-      if (in_array($item->getType(), PLUGIN_QRCODELABEL_ITEMTYPES, true)) {
+      if (plugin_qrcodelabel_is_supported_itemtype($item->getType())
+            && Session::haveRight(self::$rightname, CREATE)) {
          self::showSingleItemForm($item->getType(), $item->getID());
       }
       return true;
    }
 
    /**
-    * Show the single-item label generation form on an asset tab.
+    * Print profile selector + number of copies (shared by the tab and the
+    * massive action form). Outputs table rows.
     */
-   static function showSingleItemForm(string $itemtype, int $items_id): void {
-      $profiles = Printprofile::getProfiles();
+   private static function showGenerationFields(string $rowClass): void {
+      $profiles       = Printprofile::getProfiles();
       $defaultProfile = Printprofile::getDefault();
-      $defaultId = $defaultProfile ? (int)$defaultProfile['id'] : 0;
+      $defaultId      = $defaultProfile ? (int)$defaultProfile['id'] : 0;
 
-      echo "<form name='qrcodelabel_form' method='post' action='"
-         . Plugin::getWebDir('qrcodelabel') . "/front/label.form.php'>";
-
-      echo "<input type='hidden' name='itemtype' value='" . htmlspecialchars($itemtype) . "'>";
-      echo "<input type='hidden' name='items_id' value='" . (int)$items_id . "'>";
-
-      echo "<div class='center'><table class='tab_cadre'>";
-      echo "<tr><th colspan='2'>" . __('Generate QR label', 'qrcodelabel') . "</th></tr>";
-
-      // Print profile (sole selector; output format comes from global config)
-      echo "<tr class='tab_bg_1'>";
-      echo "<td>" . __('Print profile', 'qrcodelabel') . "</td><td>";
+      echo "<tr class='" . self::e($rowClass) . "'>";
+      echo "<td>" . self::e(__('Print profile', 'qrcodelabel')) . "</td><td>";
       if (empty($profiles)) {
-         echo "<em>" . __('No print profile configured.', 'qrcodelabel') . "</em>";
+         echo "<em>" . self::e(__('No print profile configured.', 'qrcodelabel')) . "</em>";
       } else {
          Dropdown::showFromArray('profile_id', $profiles, [
             'value' => $defaultId,
@@ -176,9 +235,35 @@ class Label extends CommonDBTM {
       }
       echo "</td></tr>";
 
+      // Copies only make sense on a PDF sheet: PNG export produces one image
+      // per asset (copies are set in the printer app).
+      if (self::getOutputFormat() !== 'png') {
+         echo "<tr class='" . self::e($rowClass) . "'>";
+         echo "<td>" . self::e(__('Number of copies', 'qrcodelabel')) . "</td><td>";
+         echo "<input type='number' name='nb_copies' value='1' min='1' max='" . self::MAX_COPIES
+            . "' step='1' class='form-control' style='width: 7em'>";
+         echo "</td></tr>";
+      }
+   }
+
+   /**
+    * Show the single-item label generation form on an asset tab.
+    */
+   static function showSingleItemForm(string $itemtype, int $items_id): void {
+      echo "<form name='qrcodelabel_form' method='post' action='"
+         . self::e(self::getWebPath() . '/front/label.form.php') . "'>";
+
+      echo "<input type='hidden' name='itemtype' value='" . self::e($itemtype) . "'>";
+      echo "<input type='hidden' name='items_id' value='" . (int)$items_id . "'>";
+
+      echo "<div class='center'><table class='tab_cadre'>";
+      echo "<tr><th colspan='2'>" . self::e(__('Generate QR label', 'qrcodelabel')) . "</th></tr>";
+
+      self::showGenerationFields('tab_bg_1');
+
       // Generate button
       echo "<tr><td class='tab_bg_1' colspan='2' align='center'>";
-      echo "<input type='submit' value='" . __('Generate', 'qrcodelabel') . "' class='submit'>";
+      echo "<input type='submit' value='" . self::e(__('Generate', 'qrcodelabel')) . "' class='submit'>";
       echo "</td></tr>";
 
       echo "</table></div>";
@@ -195,28 +280,72 @@ class Label extends CommonDBTM {
          return false;
       }
 
-      $profiles = Printprofile::getProfiles();
-      $defaultProfile = Printprofile::getDefault();
-      $defaultId = $defaultProfile ? (int)$defaultProfile['id'] : 0;
-
-      echo '<center><table>';
-
-      // Print profile
-      echo '<tr><td>' . __('Print profile', 'qrcodelabel') . ' : </td><td>';
-      if (empty($profiles)) {
-         echo '<em>' . __('No print profile configured.', 'qrcodelabel') . '</em>';
-      } else {
-         Dropdown::showFromArray('profile_id', $profiles, [
-            'value' => $defaultId,
-            'width' => '200',
-         ]);
-      }
-      echo '</td></tr>';
-
-      echo '</table></center><br/>';
-      echo Html::submit(__('Generate', 'qrcodelabel'), ['value' => 'generate']);
+      echo "<table class='mx-auto'>";
+      self::showGenerationFields('');
+      echo '</table><br/>';
+      echo Html::submit(__('Generate', 'qrcodelabel'), ['name' => 'massiveaction']);
 
       return true;
+   }
+
+   // ── Asset data ─────────────────────────────────────────────────────────────
+
+   /**
+    * Collect the data printed on a label for a loaded item.
+    */
+   static function buildAssetData(CommonDBTM $item): array {
+      global $CFG_GLPI;
+
+      $itemtype = $item->getType();
+      $id       = (int)$item->getID();
+
+      // Same URL as GLPI's native QR code (BarcodeManager)
+      $url = $CFG_GLPI['url_base'] . $itemtype::getFormURLWithID($id, false);
+
+      $location = '';
+      if ($item->isField('locations_id') && (int)$item->fields['locations_id'] > 0) {
+         $loc = new Location();
+         if ($loc->getFromDB((int)$item->fields['locations_id'])) {
+            $location = $loc->fields['completename'] ?? $loc->fields['name'] ?? '';
+         }
+      }
+
+      // Inventory date: YYYY-MM-DD → DD/MM/YYYY
+      $dateInv = '';
+      $dateRaw = (string)($item->fields['date_creation'] ?? '');
+      if ($dateRaw !== '') {
+         $ymd = explode('-', substr($dateRaw, 0, 10));
+         $dateInv = (count($ymd) === 3) ? "{$ymd[2]}/{$ymd[1]}/{$ymd[0]}" : substr($dateRaw, 0, 10);
+      }
+
+      $name = self::rawText($item->fields['name'] ?? '');
+
+      return [
+         'itemtype'    => $itemtype,
+         'id'          => $id,
+         'name'        => $name !== '' ? $name : __('No name'),
+         'serial'      => self::rawText($item->fields['serial'] ?? ''),
+         'otherserial' => self::rawText($item->fields['otherserial'] ?? ''),
+         'type_label'  => (string)$itemtype::getTypeName(1),
+         'location'    => self::rawText($location),
+         'date_inv'    => $dateInv,
+         'url'         => $url,
+      ];
+   }
+
+   /**
+    * Rendering parameters for a print profile + global configuration.
+    */
+   static function buildParams(array $profile, array $config): array {
+      return [
+         'tape_size'     => $profile['tape_size'],
+         'color_mode'    => $profile['color_mode'],
+         'show_date'     => (bool)$profile['show_date'],
+         'show_location' => (bool)($config['show_location'] ?? 0),
+         'page_size'     => $profile['page_size'],
+         'orientation'   => $profile['orientation'],
+         'owner_text'    => self::rawText(trim((string)($config['owner_text'] ?? ''))),
+      ];
    }
 
    // ── Massive Action processing ──────────────────────────────────────────────
@@ -225,137 +354,99 @@ class Label extends CommonDBTM {
       if ($ma->getAction() !== 'GenerateLabels') {
          return;
       }
-      if (!Session::haveRight(self::$rightname, CREATE)) {
+      if (!Session::haveRight(self::$rightname, CREATE)
+            || !plugin_qrcodelabel_is_supported_itemtype($item->getType())) {
+         $ma->itemDone($item->getType(), $ids, MassiveAction::ACTION_NORIGHT);
+         return;
+      }
+
+      $input = $ma->getInput();
+
+      $profile = Printprofile::getProfileById((int)($input['profile_id'] ?? 0))
+         ?? Printprofile::getDefault();
+      if (!$profile) {
+         $ma->addMessage(__('No print profile found.', 'qrcodelabel'));
          $ma->itemDone($item->getType(), $ids, MassiveAction::ACTION_KO);
          return;
       }
+      $copies = self::sanitizeCopies($input['nb_copies'] ?? 1);
 
-      global $CFG_GLPI;
-      $input = $ma->getInput();
-
-      // Load print profile from DB
-      $profileId = (int)($input['profile_id'] ?? 0);
-      $profile   = Printprofile::getProfileById($profileId);
-      if (!$profile) {
-         // Fallback to default profile
-         $profile = Printprofile::getDefault();
-      }
-      if (!$profile) {
-         Session::addMessageAfterRedirect(
-            __('No print profile found.', 'qrcodelabel'),
-            false, ERROR
-         );
-         $ma->itemDone($item->getType(), 0, MassiveAction::ACTION_KO);
-         return;
-      }
-
-      $tapeSize  = $profile['tape_size'];
-      $colorMode = $profile['color_mode'];
-      $showDate  = (int)$profile['show_date'];
-      $pageSize  = $profile['page_size'];
-      $orient    = $profile['orientation'];
-
-      // Build asset data array
-      $assets = [];
-
+      $assets  = [];
+      $okIds   = [];
+      $koIds   = [];
+      $denied  = [];
       foreach ($ids as $id) {
          if (!$item->getFromDB($id)) {
+            $koIds[] = $id;
             continue;
          }
-
-         $itemtype = $item->getType();
-
-         // Build URL exactly as GLPI native QR does
-         $url = $CFG_GLPI['url_base'] . $itemtype::getFormURLWithID($id, false);
-
-         // Get location name
-         $location = '';
-         if ($item->isField('locations_id') && $item->fields['locations_id'] > 0) {
-            $loc = new Location();
-            if ($loc->getFromDB($item->fields['locations_id'])) {
-               $location = $loc->fields['completename'] ?? $loc->fields['name'] ?? '';
-            }
+         // Entity / visibility check: never print data the user cannot read.
+         if (!$item->can($id, READ)) {
+            $denied[] = $id;
+            continue;
          }
-
-         // Get type label (translated)
-         $typeLabel = $itemtype::getTypeName(1);
-
-         // Get first inventory date
-         $dateInv = '';
-         $dateRaw = $item->fields['date_creation'] ?? '';
-         if ($dateRaw) {
-            // Format YYYY-MM-DD → DD/MM/YYYY
-            $ymd = explode('-', substr($dateRaw, 0, 10));
-            $dateInv = (count($ymd) === 3) ? "{$ymd[2]}/{$ymd[1]}/{$ymd[0]}" : substr($dateRaw, 0, 10);
+         $data = self::buildAssetData($item);
+         for ($c = 0; $c < $copies; $c++) {
+            $assets[] = $data;
          }
-
-         $assets[] = [
-            'itemtype'    => $itemtype,
-            'id'          => (int)$id,
-            'name'        => $item->fields['name'] ?? __('No name'),
-            'serial'      => $item->fields['serial'] ?? '',
-            'otherserial' => $item->fields['otherserial'] ?? '',
-            'type_label'  => $typeLabel,
-            'location'    => $location,
-            'date_inv'    => $dateInv,
-            'url'         => $url,
-         ];
+         $okIds[] = $id;
       }
 
-      // Check that we have at least one real asset (not just null skip slots)
-      $realAssets = array_filter($assets, static function ($a) { return $a !== null; });
-      if (empty($realAssets)) {
-         $ma->itemDone($item->getType(), 0, MassiveAction::ACTION_KO);
-         return;
+      $ok = false;
+      if (!empty($assets)) {
+         $config = Config::getConfig();
+         $ok = self::emitDownloadLinks(
+            $assets,
+            self::buildParams($profile, $config),
+            self::getOutputFormat($config),
+            Html::getBackUrl()
+         );
+         if ($ok) {
+            // Land on a page that keeps the download buttons on screen (GLPI
+            // toasts disappear after a few seconds, so the link was easy to miss).
+            $ma->setRedirect(self::getWebPath() . '/front/download.php');
+         } else {
+            $ma->addMessage(__('Label generation failed.', 'qrcodelabel'));
+         }
       }
 
-      $config = Config::getConfig();
-      $format = in_array($config['output_format'] ?? 'pdf', ['pdf', 'png', 'both'], true)
-         ? $config['output_format'] : 'pdf';
-      $params = [
-         'tape_size'     => $tapeSize,
-         'color_mode'    => $colorMode,
-         'show_date'     => $showDate,
-         'show_location' => (bool)($config['show_location'] ?? 0),
-         'page_size'     => $pageSize,
-         'orientation'   => $orient,
-         'owner_text'    => $config['owner_text'] ?? '',
-      ];
-
-      $ok = self::emitDownloadLinks($assets, $params, $format);
-      $ma->itemDone($item->getType(), 0,
-         $ok ? MassiveAction::ACTION_OK : MassiveAction::ACTION_KO);
+      if ($okIds) {
+         $ma->itemDone($item->getType(), $okIds, $ok ? MassiveAction::ACTION_OK : MassiveAction::ACTION_KO);
+      }
+      if ($koIds) {
+         $ma->itemDone($item->getType(), $koIds, MassiveAction::ACTION_KO);
+      }
+      if ($denied) {
+         $ma->itemDone($item->getType(), $denied, MassiveAction::ACTION_NORIGHT);
+      }
    }
 
    /**
-    * Produce PDF and/or PNG outputs and queue Session flash messages with
-    * download links.
+    * Produce PDF and/or PNG outputs and register them as pending downloads
+    * (shown by front/download.php).
     *
     * @param  array  $assets  Asset data (may contain nulls for blank slots — PDF only).
     * @param  array  $params  Shared params (tape_size, color_mode, etc.).
     * @param  string $format  'pdf', 'png', or 'both'.
+    * @param  string $backUrl Page to go back to from the download page.
     * @return bool            true if at least one output succeeded.
     */
-   static function emitDownloadLinks(array $assets, array $params, string $format): bool {
-      $webDir = Plugin::getWebDir('qrcodelabel');
-      $ok     = false;
+   static function emitDownloadLinks(array $assets, array $params, string $format, string $backUrl = ''): bool {
+      $files = [];
 
       if ($format === 'pdf' || $format === 'both') {
          $pdfPath = self::printPDF($assets, $params);
          if ($pdfPath) {
-            $token = self::registerTmpFile($pdfPath);
-            $msg   = "<a href='" . $webDir . '/front/send.php?token=' . urlencode($token)
-                   . "' target='_blank' rel='noopener noreferrer'>"
-                   . __('Download QR labels (PDF)', 'qrcodelabel') . "</a>";
-            Session::addMessageAfterRedirect($msg);
-            $ok = true;
+            $files[] = [
+               'token' => self::registerTmpFile($pdfPath),
+               'label' => __('Download QR labels (PDF)', 'qrcodelabel'),
+            ];
          }
       }
 
       if ($format === 'png' || $format === 'both') {
          // Dedupe by itemtype+id so N copies of the same asset produce 1 PNG
-         // (Brother Cube users re-print via iPrint&Label — no point shipping
-         // duplicates in a ZIP).
+         // (Brother Cube users set the number of copies in iPrint&Label).
          $seen       = [];
          $pngAssets  = [];
          foreach ($assets as $a) {
@@ -371,42 +462,145 @@ class Label extends CommonDBTM {
          }
          $pngPath = self::printPngBundle($pngAssets, $params);
          if ($pngPath) {
-            $token = self::registerTmpFile($pngPath);
-            $label = (substr($pngPath, -4) === '.zip')
-               ? __('Download QR labels (ZIP of PNGs)', 'qrcodelabel')
-               : __('Download QR label (PNG)', 'qrcodelabel');
-            $msg   = "<a href='" . $webDir . '/front/send.php?token=' . urlencode($token)
-                   . "' target='_blank' rel='noopener noreferrer'>" . $label . "</a>";
-            Session::addMessageAfterRedirect($msg);
-            $ok = true;
+            $files[] = [
+               'token' => self::registerTmpFile($pngPath),
+               'label' => (substr($pngPath, -4) === '.zip')
+                  ? __('Download QR labels (ZIP of PNGs)', 'qrcodelabel')
+                  : __('Download QR label (PNG)', 'qrcodelabel'),
+            ];
          }
       }
 
-      return $ok;
+      // A massive action on several item types calls this once per type within
+      // the same request: accumulate the files of the request.
+      if (!self::$batchOpen || !isset($_SESSION['qrcodelabel_downloads']['files'])) {
+         $_SESSION['qrcodelabel_downloads'] = ['files' => [], 'back' => $backUrl];
+         self::$batchOpen = true;
+      }
+      foreach ($files as $file) {
+         $_SESSION['qrcodelabel_downloads']['files'][] = $file;
+      }
+
+      return !empty($files);
    }
 
-   // ── High-res QR code generation via GD (sharp like Python app) ──────────
+   /** True once emitDownloadLinks() has started a download batch in this request. */
+   private static bool $batchOpen = false;
 
    /**
-    * Generate a crisp QR code PNG at high resolution using TCPDF's QR engine.
-    *
-    * @param  string $data     Data to encode
-    * @param  array  $fgColor  [r,g,b] foreground
-    * @param  array  $bgColor  [r,g,b] background
-    * @return string|false     Path to temp PNG file
+    * Whether $url is a safe "back" link: a local absolute path, or an http(s)
+    * URL on the host serving the current request.
     */
-   private static function generateQrPng(string $itemtype, int $id, array $fgColor, array $bgColor) {
-      global $CFG_GLPI;
+   private static function isLocalUrl(string $url): bool {
+      if ($url === '' || strpos($url, '//') === 0 || strpos($url, '\\') !== false) {
+         return false;
+      }
+      if ($url[0] === '/') {
+         return true;
+      }
+      $parts = parse_url($url);
+      if ($parts === false || !in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)) {
+         return false;
+      }
+      $currentHost = parse_url('http://' . ($_SERVER['HTTP_HOST'] ?? ''), PHP_URL_HOST);
+      return $currentHost !== null && $currentHost !== false
+         && strcasecmp((string)($parts['host'] ?? ''), (string)$currentHost) === 0;
+   }
 
-      // Build same URL as GLPI's BarcodeManager
-      $url = $CFG_GLPI['url_base'] . $itemtype::getFormURLWithID($id, false);
+   /**
+    * Download page content: persistent buttons for the files of the last
+    * generation (each file can be downloaded once).
+    */
+   static function showDownloadPage(): void {
+      $batch  = $_SESSION['qrcodelabel_downloads'] ?? [];
+      $tokens = $_SESSION['qrcodelabel_pdf_tokens'] ?? [];
+      $files  = [];
+      foreach (($batch['files'] ?? []) as $file) {
+         $token = (string)($file['token'] ?? '');
+         if ($token !== '' && isset($tokens[$token]) && is_file((string)$tokens[$token])) {
+            $files[] = $file;
+         }
+      }
 
-      // Use same library + params as BarcodeManager::generateQRCode() (QRCODE,H)
-      $barcode = new \Com\Tecnick\Barcode\Barcode();
-      $qrObj   = $barcode->getBarcodeObj('QRCODE,H', $url, -1, -1, 'black', [0, 0, 0, 0]);
+      // Only offer a "back" link to a page of this GLPI instance.
+      $back = (string)($batch['back'] ?? '');
+      if (!self::isLocalUrl($back)) {
+         $back = '';
+      }
 
-      // Get raw matrix and render with GD at high resolution
-      $grid = $qrObj->getGridArray('0', '1');
+      echo "<div class='container-lg my-3'><div class='card'>";
+      echo "<div class='card-header'><h3 class='card-title'><i class='fas fa-qrcode me-2'></i>"
+         . self::e(__('QR Code Labels', 'qrcodelabel')) . "</h3></div>";
+      echo "<div class='card-body'>";
+      if (empty($files)) {
+         echo "<p>" . self::e(__('No label file is waiting for download. Generate the labels again.', 'qrcodelabel')) . "</p>";
+      } else {
+         echo "<p>" . self::e(__('Your labels are ready:', 'qrcodelabel')) . "</p>";
+         echo "<div class='d-flex flex-wrap gap-2 mb-3'>";
+         foreach ($files as $file) {
+            $href = self::getWebPath() . '/front/send.php?token=' . urlencode((string)$file['token']);
+            // One-shot token: grey the button out once clicked.
+            echo "<a class='btn btn-primary qrcodelabel-download' href='" . self::e($href) . "'"
+               . " onclick=\"var b=this;setTimeout(function(){b.classList.add('disabled');},100);\">"
+               . "<i class='fas fa-download me-2'></i>" . self::e($file['label'] ?? '') . "</a>";
+         }
+         echo "</div>";
+         echo "<p class='text-muted small mb-0'>"
+            . self::e(__('Each file can be downloaded once; generate the labels again if needed.', 'qrcodelabel'))
+            . "</p>";
+      }
+      echo "</div>";
+      if ($back !== '') {
+         echo "<div class='card-footer'><a class='btn btn-outline-secondary' href='" . self::e($back) . "'>"
+            . "<i class='fas fa-arrow-left me-2'></i>" . self::e(__('Back')) . "</a></div>";
+      }
+      echo "</div></div>";
+   }
+
+   // ── QR code generation ────────────────────────────────────────────────────
+
+   /**
+    * QR module matrix (rows of 0/1) for the given data, error correction H.
+    *
+    * GLPI 11 bundles tc-lib-barcode (same engine and parameters as its native
+    * BarcodeManager). GLPI 10 does not: fall back to TCPDF's own QR encoder,
+    * shipped with GLPI 10 and 11 (TCPDF2DBarcode).
+    *
+    * @return array<int, array<int, int>>
+    */
+   private static function getQrMatrix(string $data): array {
+      if (class_exists('\Com\Tecnick\Barcode\Barcode')) {
+         $barcode = new \Com\Tecnick\Barcode\Barcode();
+         $qrObj   = $barcode->getBarcodeObj('QRCODE,H', $data, -1, -1, 'black', [0, 0, 0, 0]);
+         $matrix  = [];
+         foreach ($qrObj->getGridArray('0', '1') as $row) {
+            $matrix[] = array_map(static function ($v) { return $v === '1' ? 1 : 0; }, array_values($row));
+         }
+         return $matrix;
+      }
+
+      if (class_exists('\TCPDF2DBarcode')) {
+         $qr  = new \TCPDF2DBarcode($data, 'QRCODE,H');
+         $arr = $qr->getBarcodeArray();
+         if (is_array($arr) && !empty($arr['bcode'])) {
+            $matrix = [];
+            foreach ($arr['bcode'] as $row) {
+               $matrix[] = array_map('intval', array_values($row));
+            }
+            return $matrix;
+         }
+      }
+
+      return [];
+   }
+
+   /**
+    * Generate a crisp QR code PNG at high resolution.
+    *
+    * @return string|false Path to temp PNG file
+    */
+   private static function generateQrPng(string $url, array $fgColor, array $bgColor) {
+      $grid = self::getQrMatrix($url);
       $rows = count($grid);
       $cols = $rows > 0 ? count($grid[0]) : 0;
       if ($rows === 0 || $cols === 0) {
@@ -425,7 +619,7 @@ class Label extends CommonDBTM {
 
       for ($r = 0; $r < $rows; $r++) {
          for ($c = 0; $c < $cols; $c++) {
-            if (isset($grid[$r][$c]) && $grid[$r][$c] === '1') {
+            if (!empty($grid[$r][$c])) {
                $px = ($c + $border) * $scale;
                $py = ($r + $border) * $scale;
                imagefilledrectangle($img, $px, $py, $px + $scale - 1, $py + $scale - 1, $fg);
@@ -437,12 +631,12 @@ class Label extends CommonDBTM {
       $cacheKey = md5($url . implode(',', $fgColor) . implode(',', $bgColor));
       $tmpPath  = GLPI_TMP_DIR . '/qrcodelabel_qr_' . $uid . '_' . $cacheKey . '.png';
       imagepng($img, $tmpPath);
-      imagedestroy($img);
+      self::freeImage($img);
 
       return $tmpPath;
    }
 
-   // ── Logo color processing (matches Python exe logic) ────────────────────
+   // ── Logo color processing ────────────────────────────────────────────────
 
    /**
     * Process logo for different color modes using GD.
@@ -455,7 +649,7 @@ class Label extends CommonDBTM {
     */
    private static function processLogo(string $srcPath, string $colorMode): string {
       $uid      = (int)(Session::getLoginUserID() ?: 0);
-      $cacheKey = md5($srcPath . $colorMode);
+      $cacheKey = md5($srcPath . $colorMode . (string)@filemtime($srcPath));
       $tmpPath  = GLPI_TMP_DIR . '/qrcodelabel_logo_' . $uid . '_' . $cacheKey . '.png';
       if (file_exists($tmpPath)) {
          return $tmpPath;
@@ -463,8 +657,8 @@ class Label extends CommonDBTM {
 
       $src = @imagecreatefrompng($srcPath);
       if (!$src) {
-         // Try JPEG/other
-         $src = @imagecreatefromstring(file_get_contents($srcPath));
+         $data = @file_get_contents($srcPath);
+         $src  = $data !== false ? @imagecreatefromstring($data) : false;
       }
       if (!$src) {
          return $srcPath; // fallback to original
@@ -479,8 +673,8 @@ class Label extends CommonDBTM {
       $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
       imagefill($dst, 0, 0, $transparent);
 
-      $inverse  = in_array($colorMode, ['inverse', 'inverse_mono']);
-      $isMono   = in_array($colorMode, ['mono', 'inverse_mono']);
+      $inverse  = in_array($colorMode, ['inverse', 'inverse_mono'], true);
+      $isMono   = in_array($colorMode, ['mono', 'inverse_mono'], true);
 
       for ($px = 0; $px < $w; $px++) {
          for ($py = 0; $py < $h; $py++) {
@@ -523,10 +717,160 @@ class Label extends CommonDBTM {
       }
 
       imagepng($dst, $tmpPath);
-      imagedestroy($src);
-      imagedestroy($dst);
+      self::freeImage($src);
+      self::freeImage($dst);
 
       return $tmpPath;
+   }
+
+   // ── Text layout (shared by PDF and PNG) ───────────────────────────────────
+
+   /** mm per typographic point. */
+   private const PT_MM = 0.3528;
+
+   /**
+    * Shorten $text with an ellipsis until it fits $maxW (mm).
+    */
+   private static function fitText(string $text, float $maxW, float $pt, string $style, callable $measure): string {
+      if ($text === '' || $measure($text, $pt, $style) <= $maxW) {
+         return $text;
+      }
+      while (mb_strlen($text) > 1 && $measure($text . '…', $pt, $style) > $maxW) {
+         $text = mb_substr($text, 0, -1);
+      }
+      return rtrim($text) . '…';
+   }
+
+   /**
+    * Lay out the text column of a label.
+    *
+    * Every enabled field is kept on every tape size: the line spacing is
+    * tightened first, then the whole text block moves up into the top margin,
+    * then all fonts shrink together (down to 60 %). Long values are shortened
+    * with an ellipsis instead of being silently dropped.
+    *
+    * @param array    $ts      Tape preset (self::$tapeSizes entry).
+    * @param array    $asset   Asset data.
+    * @param array    $opt     show_date, show_location, owner_text.
+    * @param float    $textW   Width of the text column (mm).
+    * @param callable $measure fn(string $text, float $pt, string $style): float — width in mm.
+    * @return array<int, array{text:string, pt:float, style:string, color:string, align:string, baseline:float}>
+    *               Baselines in mm from the top edge of the label.
+    */
+   static function layoutText(array $ts, array $asset, array $opt, float $textW, callable $measure): array {
+      $top = [
+         ['text' => (string)($asset['name'] ?? ''), 'pt' => $ts['font_name'], 'style' => 'B', 'color' => 'main'],
+         ['text' => (string)($asset['type_label'] ?? ''), 'pt' => $ts['font_type'], 'style' => '', 'color' => 'sub'],
+         ['text' => 'S/N: ' . (($asset['serial'] ?? '') !== '' ? $asset['serial'] : 'N/A'),
+          'pt' => $ts['font_sn'], 'style' => 'B', 'color' => 'sn'],
+      ];
+      if (!empty($opt['show_date']) && ($asset['date_inv'] ?? '') !== '') {
+         $top[] = ['text' => 'Inv : ' . $asset['date_inv'], 'pt' => $ts['font_loc'], 'style' => '', 'color' => 'sub'];
+      }
+      if (!empty($opt['show_location']) && ($asset['location'] ?? '') !== '') {
+         $top[] = ['text' => (string)$asset['location'], 'pt' => $ts['font_loc'], 'style' => 'I', 'color' => 'loc'];
+      }
+      $top = array_values(array_filter($top, static function ($l) { return $l['text'] !== ''; }));
+
+      $owner = trim((string)($opt['owner_text'] ?? ''));
+      $inv   = (string)($asset['otherserial'] ?? '');
+      $inv   = $inv !== '' ? 'Inv : ' . $inv : '';
+
+      $asc   = 0.75 * self::PT_MM;  // ascender height per pt
+      $desc  = 0.22 * self::PT_MM;  // descender depth per pt
+      $pitch = 1.2 * self::PT_MM;   // minimal baseline-to-baseline distance per pt
+      $kMax  = 1.75;                // airy spacing used when there is room
+      $gap   = 1.2;                 // mm between top block and bottom block
+
+      // Attempts [font scale, raise text into the top margin, minimal spacing
+      // factor]: nominal position with comfortable spacing, then the text block
+      // raised, then all fonts scaled down together (last attempt always wins).
+      $attempts = [[1.0, false, 1.3]];
+      for ($s = 1.0; $s >= 0.599; $s -= 0.05) {
+         $attempts[] = [round($s, 2), true, 1.0];
+      }
+
+      $result = [];
+      foreach ($attempts as $n => [$scale, $raise, $kMin]) {
+         $isLast = ($n === count($attempts) - 1);
+
+         // ── Bottom block: owner (left) + inventory number (right) ──
+         $bpt    = $ts['font_inv'] * $scale;
+         $bottom = [];
+         if ($owner !== '' && $inv !== '') {
+            $invW = $measure($inv, $bpt, '');
+            if ($measure($owner, $bpt, '') + 2 + $invW <= $textW) {
+               $bottom[] = [
+                  ['text' => $owner, 'align' => 'L'],
+                  ['text' => $inv, 'align' => 'R'],
+               ];
+            } else {
+               $bottom[] = [['text' => self::fitText($owner, $textW, $bpt, '', $measure), 'align' => 'L']];
+               $bottom[] = [['text' => self::fitText($inv, $textW, $bpt, '', $measure), 'align' => 'L']];
+            }
+         } else if ($owner !== '' || $inv !== '') {
+            $bottom[] = [['text' => self::fitText($owner !== '' ? $owner : $inv, $textW, $bpt, '', $measure), 'align' => 'L']];
+         }
+
+         $bottomBase = (float)$ts['bottom_base'];
+         $nb         = count($bottom);
+         $firstBottomBase = $bottomBase - ($nb > 1 ? ($nb - 1) * $bpt * $pitch : 0);
+         $limit = $nb > 0
+            ? $firstBottomBase - $bpt * $asc - $gap
+            : $bottomBase + $bpt * $desc;
+
+         // ── Top block ──
+         $firstPt  = $top ? $top[0]['pt'] * $scale : 0;
+         $nameBase = (float)$ts['name_base'];
+         if ($raise && $top) {
+            $nameBase = min($nameBase, (float)$ts['text_top'] + $firstPt * $asc);
+         }
+         $needed = 0.0;
+         for ($i = 1, $c = count($top); $i < $c; $i++) {
+            $needed += $top[$i]['pt'] * $scale * $pitch;
+         }
+         $lastDesc = $top ? end($top)['pt'] * $scale * $desc : 0;
+         $avail    = $limit - $lastDesc - $nameBase;
+
+         if ($needed > 0 && $needed * $kMin > $avail && !$isLast) {
+            continue; // does not fit yet: try next attempt
+         }
+         $k = $needed > 0 ? min($kMax, max(0.8, $avail / $needed)) : 1.0;
+
+         // ── Emit lines ──
+         $y = $nameBase;
+         foreach ($top as $i => $line) {
+            $pt = $line['pt'] * $scale;
+            if ($i > 0) {
+               $y += $pt * $pitch * $k;
+            }
+            $result[] = [
+               'text'     => self::fitText($line['text'], $textW, $pt, $line['style'], $measure),
+               'pt'       => $pt,
+               'style'    => $line['style'],
+               'color'    => $line['color'],
+               'align'    => 'L',
+               'baseline' => $y,
+            ];
+         }
+         $y = $firstBottomBase;
+         foreach ($bottom as $row) {
+            foreach ($row as $cell) {
+               $result[] = [
+                  'text'     => $cell['text'],
+                  'pt'       => $bpt,
+                  'style'    => '',
+                  'color'    => 'inv',
+                  'align'    => $cell['align'],
+                  'baseline' => $y,
+               ];
+            }
+            $y += $bpt * $pitch;
+         }
+         break;
+      }
+
+      return $result;
    }
 
    // ── PDF Generation ─────────────────────────────────────────────────────────
@@ -542,13 +886,13 @@ class Label extends CommonDBTM {
 
       $tapeSize  = $params['tape_size']  ?? '36mm';
       $colorMode = $params['color_mode'] ?? 'bw';
-      $showDate  = (bool)($params['show_date'] ?? true);
-      $showLoc   = (bool)($params['show_location'] ?? false);
       $pageSize  = strtoupper($params['page_size'] ?? 'A4');
       $isLandscape = (($params['orientation'] ?? 'Portrait') === 'Landscape');
-      $ownerText = trim($params['owner_text'] ?? '');
 
-      $ts = self::$tapeSizes[$tapeSize] ?? self::$tapeSizes['36mm'];
+      if (!isset(self::$tapeSizes[$tapeSize])) {
+         $tapeSize = '36mm';
+      }
+      $ts = self::$tapeSizes[$tapeSize];
       $cm = self::$colorModes[$colorMode] ?? self::$colorModes['bw'];
 
       $labelW = $ts['label_w'];
@@ -597,8 +941,18 @@ class Label extends CommonDBTM {
       $rows    = max(1, (int)(($pageH - 2 * $marginY) / ($labelH + $gapY)));
       $perPage = $cols * $rows;
 
+      $measure = static function (string $text, float $pt, string $style) use ($pdf): float {
+         $pdf->SetFont('helvetica', $style, $pt);
+         return (float)$pdf->GetStringWidth($text);
+      };
+      $layoutOpt = [
+         'show_date'     => (bool)($params['show_date'] ?? true),
+         'show_location' => (bool)($params['show_location'] ?? false),
+         'owner_text'    => (string)($params['owner_text'] ?? ''),
+      ];
+
       // ── Render loop ───────────────────────────────────────────────────────
-      foreach ($assets as $i => $asset) {
+      foreach (array_values($assets) as $i => $asset) {
          $pi = $i % $perPage;
          if ($i > 0 && $pi === 0) {
             $pdf->AddPage();
@@ -615,24 +969,16 @@ class Label extends CommonDBTM {
          }
 
          // ── Background fill (inverse modes) ────────────────────────────────
-         $inverse = in_array($colorMode, ['inverse', 'inverse_mono']);
-         if ($inverse) {
+         if (in_array($colorMode, ['inverse', 'inverse_mono'], true)) {
             $pdf->SetFillColor(0, 0, 0);
             $pdf->Rect($x, $y, $labelW, $labelH, 'F');
          }
 
-         // Outer border removed (v1.4.0): cleaner look, avoids clipping the
-         // logo when labels are printed flush-to-edge on Brother tapes.
-
          // ── Left column: logo (top) + QR (below) ──────────────────────────
-         $leftColX    = $x + 2;               // 2mm margin from label left edge
-         $topMargin   = $ts['top_m'] ?? 3;    // mm
-         $logoToQrGap = 0.5;                  // mm
+         $leftColX    = $x + 2;
+         $topMargin   = $ts['top_m'];
+         $logoToQrGap = 0.5;
 
-         // Draw logo above QR column
-         // - width cap: QR + 4mm (accommodates wide banner-style logos)
-         // - bottom-aligned in its cell so the visible content sits close to
-         //   the QR regardless of the image aspect ratio.
          if ($hasLogo) {
             $logoHmm = $ts['logo_h'];
             $imgInfo = @getimagesize($logoPath);
@@ -654,158 +1000,67 @@ class Label extends CommonDBTM {
                if ($cm['invert_logo'] || $colorMode === 'mono') {
                   $useLogoPath = self::processLogo($logoPath, $colorMode);
                }
-               $pdf->Image($useLogoPath, $logoX, $logoY, $logoW, $logoHmm, 'PNG', '', '', false, 300);
+               // Let TCPDF detect the image type (older installs may hold a
+               // JPEG/GIF saved as logo.png).
+               $pdf->Image($useLogoPath, $logoX, $logoY, $logoW, $logoHmm, '', '', '', false, 300);
             }
          }
 
          // QR positioned below logo (or at top if no logo)
-         $qrX = $leftColX;
-         $qrY = $y + $topMargin + $ts['logo_h'] + $logoToQrGap;
-         $qrPng = (!empty($asset['itemtype']) && !empty($asset['id']))
-            ? self::generateQrPng($asset['itemtype'], $asset['id'], $cm['qr_fg'], $cm['qr_bg'])
+         $qrY   = $y + $topMargin + $ts['logo_h'] + $logoToQrGap;
+         $qrPng = !empty($asset['url'])
+            ? self::generateQrPng($asset['url'], $cm['qr_fg'], $cm['qr_bg'])
             : false;
          if ($qrPng && file_exists($qrPng)) {
-            $pdf->Image($qrPng, $qrX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
+            $pdf->Image($qrPng, $leftColX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
          }
 
          // ── Vertical separator — centred in the gap between QR and text ───
          $qrEnd = $leftColX + $qrSize;
-         $tx    = $qrEnd + 7;                              // text starts 7mm after QR end
-         $sx    = $qrEnd + ($tx - $qrEnd) / 2;             // separator in the middle of the gap
+         $tx    = $qrEnd + 7;
+         $sx    = $qrEnd + ($tx - $qrEnd) / 2;
          $pdf->SetDrawColor($cm['sep'][0], $cm['sep'][1], $cm['sep'][2]);
          $pdf->SetLineWidth(0.6);
          $pdf->Line($sx, $y + 3, $sx, $y + $labelH - 3);
 
+         // TCPDF cells have ~1 mm inner padding on each side.
          $textW = $labelW - ($tx - $x) - 2;
+         $fitW  = $textW - 2 * $pdf->getCellPaddings()['L'];
 
-         // ── Text fields — fixed mm positions from Python ReportLab ─────────
-         // Python (bottom-up):  drawString(tx, y + lh - Nmm)
-         // TCPDF  (top-down):   SetXY(tx, y + Nmm - baseline_offset)
-         // TCPDF baseline offset ≈ font_pt * 0.35 (ascender)
-
-         // Dynamic name truncation: the full text width is now available
-         // (logo sits above QR on the left, not top-right anymore).
-         $pdf->SetFont('helvetica', 'B', $ts['font_name']);
-         $name = $asset['name'];
-         if ($pdf->GetStringWidth($name) > $textW) {
-            while (mb_strlen($name) > 1
-                   && $pdf->GetStringWidth($name . '…') > $textW) {
-               $name = mb_substr($name, 0, -1);
-            }
-            $name .= '…';
-         }
-
-         // Fixed offsets per tape size (from top of label, in mm)
-         // Derived from Python: offset_from_top = lh - python_offset
-         // 36mm: name@10, type@14, sn@19.5, date@24, loc@28, bottom@lh-3
-         // 25mm: name@7, type@10, sn@13.5, bottom@lh-3
-         // 50mm: name@12, type@17, sn@24, date@30, loc@35, bottom@lh-3
-         if ($tapeSize === '25mm' || $tapeSize === '24mm') {
-            $oName = 7; $oType = 10; $oSn = 13.5; $oDate = 0; $oLoc = 16;
-         } else if ($tapeSize === '50mm') {
-            $oName = 12; $oType = 17; $oSn = 24; $oDate = 30; $oLoc = 35;
-         } else { // 36mm
-            $oName = 10; $oType = 14; $oSn = 19.5; $oDate = 24; $oLoc = 28;
-         }
-
-         // Asset name (bold)
-         $pdf->SetFont('helvetica', 'B', $ts['font_name']);
-         $pdf->SetTextColor($cm['main'][0], $cm['main'][1], $cm['main'][2]);
-         $pdf->SetXY($tx, $y + $oName - $ts['font_name'] * 0.35);
-         $pdf->Cell($textW, 0, $name, 0, 0, 'L');
-
-         // Type
-         $pdf->SetFont('helvetica', '', $ts['font_type']);
-         $pdf->SetTextColor($cm['sub'][0], $cm['sub'][1], $cm['sub'][2]);
-         $pdf->SetXY($tx, $y + $oType - $ts['font_type'] * 0.35);
-         $pdf->Cell($textW, 0, $asset['type_label'], 0, 0, 'L');
-
-         // Serial number — dynamic truncation to fit textW width
-         $pdf->SetFont('helvetica', 'B', $ts['font_sn']);
-         $pdf->SetTextColor($cm['sn'][0], $cm['sn'][1], $cm['sn'][2]);
-         $sn  = $asset['serial'] ?: 'N/A';
-         $snStr = 'S/N: ' . $sn;
-         if ($pdf->GetStringWidth($snStr) > $textW) {
-            while (mb_strlen($sn) > 1
-                   && $pdf->GetStringWidth('S/N: ' . $sn . '…') > $textW) {
-               $sn = mb_substr($sn, 0, -1);
-            }
-            $snStr = 'S/N: ' . $sn . '…';
-         }
-         $pdf->SetXY($tx, $y + $oSn - $ts['font_sn'] * 0.35);
-         $pdf->Cell($textW, 0, $snStr, 0, 0, 'L');
-
-         // Inventory date (not on 25mm)
-         $dateInv = $asset['date_inv'] ?? '';
-         $hasDate = ($dateInv && $tapeSize !== '25mm' && $showDate && $oDate > 0);
-         if ($hasDate) {
-            $pdf->SetFont('helvetica', '', $ts['font_loc']);
-            $pdf->SetTextColor($cm['sub'][0], $cm['sub'][1], $cm['sub'][2]);
-            $pdf->SetXY($tx, $y + $oDate - $ts['font_loc'] * 0.35);
-            $pdf->Cell($textW, 0, 'Inv : ' . $dateInv, 0, 0, 'L');
-         }
-
-         // Location — only when globally enabled (show_location=1)
-         $location = $asset['location'] ?? '';
-         if ($showLoc && $location && $tapeSize !== '25mm' && $tapeSize !== '24mm') {
-            $locOffset = $hasDate ? $oLoc : $oDate;
-            if ($locOffset > 0) {
-               $pdf->SetFont('helvetica', 'I', $ts['font_loc']);
-               $pdf->SetTextColor($cm['loc'][0], $cm['loc'][1], $cm['loc'][2]);
-               $pdf->SetXY($tx, $y + $locOffset - $ts['font_loc'] * 0.35);
-               $pdf->Cell($textW, 0, mb_substr($location, 0, 22), 0, 0, 'L');
-            }
-         }
-
-         // ── Bottom line: owner text (left) + inventory number (right)
-         $inv      = $asset['otherserial'] ?? '';
-         $hasOwner = ($ownerText !== '');
-         $hasInv   = ($inv !== '');
-         if (($hasOwner || $hasInv) && $tapeSize !== '25mm') {
-            $bottomY = $y + $labelH - 6 - ($ts['font_inv'] * 0.35);
-            $pdf->SetFont('helvetica', '', $ts['font_inv']);
-            $pdf->SetTextColor($cm['inv'][0], $cm['inv'][1], $cm['inv'][2]);
-            if ($hasOwner && $hasInv) {
-               // Owner text left, inv number right
-               $invStr = 'Inv : ' . $inv;
-               $pdf->SetXY($tx, $bottomY);
-               $pdf->Cell($textW, 0, $ownerText, 0, 0, 'L');
-               // Overlay inv number right-aligned on same line
-               $pdf->SetXY($tx, $bottomY);
-               $pdf->Cell($textW, 0, $invStr, 0, 0, 'R');
-            } else if ($hasOwner) {
-               $pdf->SetXY($tx, $bottomY);
-               $pdf->Cell($textW, 0, $ownerText, 0, 0, 'L');
-            } else {
-               $pdf->SetXY($tx, $bottomY);
-               $pdf->Cell($textW, 0, 'Inv : ' . $inv, 0, 0, 'L');
-            }
+         // ── Text column ──────────────────────────────────────────────────
+         foreach (self::layoutText($ts, $asset, $layoutOpt, $fitW, $measure) as $line) {
+            $color = $cm[$line['color']];
+            $pdf->SetFont('helvetica', $line['style'], $line['pt']);
+            $pdf->SetTextColor($color[0], $color[1], $color[2]);
+            $pdf->SetXY($tx, $y + $line['baseline']);
+            // calign 'L' + valign 'T': the Y coordinate is the text baseline.
+            $pdf->Cell($textW, 0, $line['text'], 0, 0, $line['align'], false, '', 0, false, 'L', 'T');
          }
 
       } // foreach assets
 
       // ── Save PDF to temp dir ──────────────────────────────────────────────
-      $pdfFile = 'qrcodelabel_' . (int)(Session::getLoginUserID() ?: 0) . '_' . $tapeSize . '_' . mt_rand() . '.pdf';
+      $uid     = (int)(Session::getLoginUserID() ?: 0);
+      $pdfFile = 'qrcodelabel_' . $uid . '_' . $tapeSize . '_' . bin2hex(random_bytes(8)) . '.pdf';
       $pdfPath = GLPI_TMP_DIR . '/' . $pdfFile;
       $pdf->Output($pdfPath, 'F');
 
-      // ── Clean up temporary QR and logo PNGs (this user's only, so a
-      //    concurrent request from another user is never disturbed) ───────────
-      $uid = (int)(Session::getLoginUserID() ?: 0);
-      $tmpFiles = glob(GLPI_TMP_DIR . '/qrcodelabel_qr_' . $uid . '_*.png');
-      if ($tmpFiles) {
-         foreach ($tmpFiles as $tmpFile) {
-            @unlink($tmpFile);
-         }
-      }
-      $tmpLogos = glob(GLPI_TMP_DIR . '/qrcodelabel_logo_' . $uid . '_*.png');
-      if ($tmpLogos) {
-         foreach ($tmpLogos as $tmpFile) {
-            @unlink($tmpFile);
-         }
-      }
+      self::cleanIntermediateFiles();
 
-      return $pdfPath;
+      return is_file($pdfPath) ? $pdfPath : false;
+   }
+
+   /**
+    * Remove this user's intermediate QR/logo PNGs (never another user's, so a
+    * concurrent generation is never disturbed).
+    */
+   private static function cleanIntermediateFiles(): void {
+      $uid = (int)(Session::getLoginUserID() ?: 0);
+      foreach (['qr', 'logo'] as $kind) {
+         foreach (glob(GLPI_TMP_DIR . '/qrcodelabel_' . $kind . '_' . $uid . '_*.png') ?: [] as $f) {
+            @unlink($f);
+         }
+      }
    }
 
    // ── Font resolution (for GD imagettftext) ───────────────────────────────
@@ -818,14 +1073,12 @@ class Label extends CommonDBTM {
     * @return string|null Path to a TTF file, or null if none found.
     */
    private static function findFont(bool $bold = false): ?string {
-      $pluginFontDir = Plugin::getPhpDir('qrcodelabel') . '/fonts';
+      $pluginFontDir = dirname(__DIR__) . '/fonts';
 
       $candidates = $bold ? [
-         // Bundled with the plugin (first priority — works everywhere):
          $pluginFontDir . '/NotoSans-Bold.ttf',
          $pluginFontDir . '/LiberationSans-Bold.ttf',
          $pluginFontDir . '/DejaVuSans-Bold.ttf',
-         // System fallbacks:
          '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
          '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
          '/usr/share/fonts/liberation-sans/LiberationSans-Bold.ttf',
@@ -834,11 +1087,9 @@ class Label extends CommonDBTM {
          '/usr/share/fonts/TTF/DejaVuSans-Bold.ttf',
          'C:/Windows/Fonts/arialbd.ttf',
       ] : [
-         // Bundled with the plugin (first priority — works everywhere):
          $pluginFontDir . '/NotoSans-Regular.ttf',
          $pluginFontDir . '/LiberationSans-Regular.ttf',
          $pluginFontDir . '/DejaVuSans.ttf',
-         // System fallbacks:
          '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf',
          '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
          '/usr/share/fonts/liberation-sans/LiberationSans-Regular.ttf',
@@ -861,22 +1112,19 @@ class Label extends CommonDBTM {
    /**
     * Generate a single PNG label at exact tape dimensions for Brother label printers.
     *
-    * Output: one PNG per asset in GLPI_TMP_DIR. Uses the same visual layout
-    * as printPDF() but rendered via GD (no TCPDF page layout).
-    *
     * @param  array $asset   Asset data (same shape as printPDF rows).
-    * @param  array $params  tape_size, color_mode, show_date, owner_text.
+    * @param  array $params  tape_size, color_mode, show_date, show_location, owner_text.
     * @param  int   $dpi     Render density (default 300).
     * @return string|false   Absolute path to the PNG, or false on failure.
     */
    static function printPNG(array $asset, array $params, int $dpi = 300) {
       $tapeSize  = $params['tape_size']  ?? '36mm';
       $colorMode = $params['color_mode'] ?? 'bw';
-      $showDate  = (bool)($params['show_date'] ?? true);
-      $showLoc   = (bool)($params['show_location'] ?? false);
-      $ownerText = trim($params['owner_text'] ?? '');
 
-      $ts = self::$tapeSizes[$tapeSize] ?? self::$tapeSizes['36mm'];
+      if (!isset(self::$tapeSizes[$tapeSize])) {
+         $tapeSize = '36mm';
+      }
+      $ts = self::$tapeSizes[$tapeSize];
       $cm = self::$colorModes[$colorMode] ?? self::$colorModes['bw'];
 
       $fontReg  = self::findFont(false);
@@ -902,15 +1150,12 @@ class Label extends CommonDBTM {
       $bg = imagecolorallocate($img, $cm['bg'][0], $cm['bg'][1], $cm['bg'][2]);
       imagefilledrectangle($img, 0, 0, $w, $h, $bg);
 
-      // Outer border removed (v1.4.0): cleaner look + no clipping of logo.
-
       // ── Left column: logo (top) + QR (below) ──────────────────────────
-      $leftColPx   = (int)round(2 * $mmToPx);                     // 2mm left
-      $topMarginPx = (int)round(($ts['top_m'] ?? 3) * $mmToPx);
+      $leftColPx   = (int)round(2 * $mmToPx);
+      $topMarginPx = (int)round($ts['top_m'] * $mmToPx);
       $gapPx       = (int)round(0.5 * $mmToPx);
       $qrPx        = (int)round($ts['qr_size'] * $mmToPx);
 
-      // Logo — top-left column, centered horizontally above QR
       $logoPath = GLPI_PLUGIN_DOC_DIR . '/qrcodelabel/logo.png';
       if (file_exists($logoPath)) {
          $useLogoPath = $logoPath;
@@ -937,39 +1182,37 @@ class Label extends CommonDBTM {
                }
                $logoX = $leftColPx + (int)round(($qrPx - $logoW) / 2);
                if ($logoX < 0) { $logoX = 0; }
-               // Bottom-align within cell so visible logo content sits close to QR
                $logoY = $topMarginPx + ($cellHPx - $logoH);
                imagealphablending($img, true);
                imagecopyresampled($img, $logo, $logoX, $logoY, 0, 0,
                   $logoW, $logoH, $lOrigW, $lOrigH);
             }
-            imagedestroy($logo);
+            self::freeImage($logo);
          }
       }
 
       // QR below logo
       $qrX  = $leftColPx;
       $qrY  = $topMarginPx + (int)round($ts['logo_h'] * $mmToPx) + $gapPx;
-      $qrPng = (!empty($asset['itemtype']) && !empty($asset['id']))
-         ? self::generateQrPng($asset['itemtype'], $asset['id'], $cm['qr_fg'], $cm['qr_bg'])
+      $qrPng = !empty($asset['url'])
+         ? self::generateQrPng($asset['url'], $cm['qr_fg'], $cm['qr_bg'])
          : false;
       if ($qrPng && file_exists($qrPng)) {
          $qr = @imagecreatefrompng($qrPng);
          if ($qr) {
             imagecopyresampled($img, $qr, $qrX, $qrY, 0, 0,
                $qrPx, $qrPx, imagesx($qr), imagesy($qr));
-            imagedestroy($qr);
+            self::freeImage($qr);
          }
       }
 
       // ── Vertical separator — centred in the gap between QR and text ────
       $qrEndPx = $qrX + $qrPx;
-      $tx      = $qrEndPx + (int)round(7 * $mmToPx);          // text 7mm after QR end
-      $sx      = (int)round(($qrEndPx + $tx) / 2);            // separator mid-gap
+      $tx      = $qrEndPx + (int)round(7 * $mmToPx);
+      $sx      = (int)round(($qrEndPx + $tx) / 2);
       $sep     = imagecolorallocate($img, $cm['sep'][0], $cm['sep'][1], $cm['sep'][2]);
-      // Thicker separator (Brother thermal printers struggle with 1-pixel lines):
-      // draw a filled rectangle 0.6 mm wide instead of a 1-px imageline.
-      $sepHalf = max(1, (int)round(0.3 * $mmToPx));  // half-width in px
+      // 0.6 mm wide bar (Brother thermal printers struggle with 1-pixel lines)
+      $sepHalf = max(1, (int)round(0.3 * $mmToPx));
       imagefilledrectangle(
          $img,
          $sx - $sepHalf, (int)round(3 * $mmToPx),
@@ -977,137 +1220,53 @@ class Label extends CommonDBTM {
          $sep
       );
 
-      $textW = $w - $tx - (int)round(2 * $mmToPx);
+      $textWPx = $w - $tx - (int)round(2 * $mmToPx);
 
-      // ── Text offsets (same logic as printPDF) ───────────────────────────
-      if ($tapeSize === '25mm' || $tapeSize === '24mm') {
-         $oName = 7; $oType = 10; $oSn = 13.5; $oDate = 0; $oLoc = 16;
-      } else if ($tapeSize === '50mm') {
-         $oName = 12; $oType = 17; $oSn = 24; $oDate = 30; $oLoc = 35;
-      } else { // 36mm
-         $oName = 10; $oType = 14; $oSn = 19.5; $oDate = 24; $oLoc = 28;
-      }
-
-      // Full text area available for the name (logo is above QR, not
-      // on the text row anymore).
-      $nameMaxPx = $textW;
-
-      // Dynamic name truncation: measure actual rendered width with the bold
-      // font at label font size, and trim until it fits (handles wide glyphs).
-      $name = $asset['name'];
-      $nameFontPx = $ts['font_name'] * $ptToPx;
-      $measure = static function (string $s) use ($nameFontPx, $fontBold): int {
-         if ($s === '') { return 0; }
-         $bbox = imagettfbbox($nameFontPx, 0, $fontBold, $s);
-         return abs($bbox[2] - $bbox[0]);
+      // ── Text column ─────────────────────────────────────────────────────
+      $fontFor = static function (string $style) use ($fontReg, $fontBold): string {
+         return strpos($style, 'B') !== false ? $fontBold : $fontReg;
       };
-      if ($measure($name) > $nameMaxPx) {
-         while (mb_strlen($name) > 1 && $measure($name . '…') > $nameMaxPx) {
-            $name = mb_substr($name, 0, -1);
+      $widthPx = static function (string $text, float $pt, string $style) use ($ptToPx, $fontFor): float {
+         if ($text === '') {
+            return 0.0;
          }
-         $name .= '…';
-      }
-
-      // Helper: draw text with baseline at Y (mm from top of label)
-      $drawText = static function (
-         $text, float $baselineMm, float $fontPt, array $color, bool $bold = false
-      ) use (&$img, $tx, $mmToPx, $ptToPx, $fontReg, $fontBold): void {
-         if ($text === '' || $text === null) {
-            return;
-         }
-         $size = $fontPt * $ptToPx;
-         $y    = (int)round($baselineMm * $mmToPx);
-         $col  = imagecolorallocate($img, $color[0], $color[1], $color[2]);
-         imagettftext($img, $size, 0, $tx, $y, $col,
-            $bold ? $fontBold : $fontReg, $text);
+         $bbox = imagettfbbox($pt * $ptToPx, 0, $fontFor($style), $text);
+         return (float)abs($bbox[2] - $bbox[0]);
       };
+      $measure = static function (string $text, float $pt, string $style) use ($widthPx, $mmToPx): float {
+         return $widthPx($text, $pt, $style) / $mmToPx;
+      };
+      $layoutOpt = [
+         'show_date'     => (bool)($params['show_date'] ?? true),
+         'show_location' => (bool)($params['show_location'] ?? false),
+         'owner_text'    => (string)($params['owner_text'] ?? ''),
+      ];
 
-      // Name (bold)
-      $drawText($name, $oName, $ts['font_name'], $cm['main'], true);
-
-      // Type
-      $drawText($asset['type_label'] ?? '', $oType, $ts['font_type'], $cm['sub'], false);
-
-      // Serial — dynamic truncation to fit nameMaxPx (same width as name)
-      $sn       = $asset['serial'] ?: 'N/A';
-      $snFontPx = $ts['font_sn'] * $ptToPx;
-      $snStr    = 'S/N: ' . $sn;
-      $snBbox   = imagettfbbox($snFontPx, 0, $fontBold, $snStr);
-      if (abs($snBbox[2] - $snBbox[0]) > $nameMaxPx) {
-         while (mb_strlen($sn) > 1) {
-            $trial = 'S/N: ' . $sn . '…';
-            $bb    = imagettfbbox($snFontPx, 0, $fontBold, $trial);
-            if (abs($bb[2] - $bb[0]) <= $nameMaxPx) {
-               break;
-            }
-            $sn = mb_substr($sn, 0, -1);
+      foreach (self::layoutText($ts, $asset, $layoutOpt, $textWPx / $mmToPx, $measure) as $line) {
+         if ($line['text'] === '') {
+            continue;
          }
-         $snStr = 'S/N: ' . $sn . '…';
-      }
-      $drawText($snStr, $oSn, $ts['font_sn'], $cm['sn'], true);
-
-      // Date (not on 24/25mm)
-      $dateInv = $asset['date_inv'] ?? '';
-      $hasDate = ($dateInv && $tapeSize !== '25mm' && $tapeSize !== '24mm' && $showDate && $oDate > 0);
-      if ($hasDate) {
-         $drawText('Inv : ' . $dateInv, $oDate, $ts['font_loc'], $cm['sub'], false);
-      }
-
-      // Location — only when globally enabled (show_location=1)
-      $location = $asset['location'] ?? '';
-      if ($showLoc && $location && $tapeSize !== '25mm' && $tapeSize !== '24mm') {
-         $locOffset = $hasDate ? $oLoc : $oDate;
-         if ($locOffset > 0) {
-            $drawText(mb_substr($location, 0, 22), $locOffset, $ts['font_loc'], $cm['loc'], false);
+         $color = $cm[$line['color']];
+         $col   = imagecolorallocate($img, $color[0], $color[1], $color[2]);
+         $x     = $tx;
+         if ($line['align'] === 'R') {
+            $x = $tx + $textWPx - (int)ceil($widthPx($line['text'], $line['pt'], $line['style']));
          }
-      }
-
-      // Bottom line: owner (left) + inv number (right)
-      $inv      = $asset['otherserial'] ?? '';
-      $hasOwner = ($ownerText !== '');
-      $hasInv   = ($inv !== '');
-      if (($hasOwner || $hasInv) && $tapeSize !== '25mm' && $tapeSize !== '24mm') {
-         // 6mm margin: descender of "p"/"g" still clears the Brother tape
-         // unprintable bottom edge, but text sits closer to the label bottom.
-         $bottomY = $ts['label_h'] - 6;
-         $invStr  = 'Inv : ' . $inv;
-         $col     = imagecolorallocate($img, $cm['inv'][0], $cm['inv'][1], $cm['inv'][2]);
-         $fontSizePx = $ts['font_inv'] * $ptToPx;
-
-         if ($hasOwner) {
-            imagettftext($img, $fontSizePx, 0, $tx, (int)round($bottomY * $mmToPx),
-               $col, $fontReg, $ownerText);
-         }
-         if ($hasInv) {
-            $bbox = imagettfbbox($fontSizePx, 0, $fontReg, $invStr);
-            $strPx = abs($bbox[2] - $bbox[0]);
-            $invX  = $w - (int)round(2 * $mmToPx) - $strPx;
-            if ($hasOwner && $invX < $tx) {
-               $invX = $tx; // fallback: no room for right-align, skip overlap
-            }
-            imagettftext($img, $fontSizePx, 0, $invX, (int)round($bottomY * $mmToPx),
-               $col, $fontReg, $invStr);
-         }
+         imagettftext($img, $line['pt'] * $ptToPx, 0, (int)$x, (int)round($line['baseline'] * $mmToPx),
+            $col, $fontFor($line['style']), $line['text']);
       }
 
       // ── Save PNG ────────────────────────────────────────────────────────
+      $uid    = (int)(Session::getLoginUserID() ?: 0);
       $safeId = (int)($asset['id'] ?? 0);
-      $file   = 'qrcodelabel_' . (int)(Session::getLoginUserID() ?: 0) . '_' . $tapeSize
-              . '_' . $safeId . '_' . mt_rand() . '.png';
+      $file   = 'qrcodelabel_' . $uid . '_' . $tapeSize . '_' . $safeId . '_' . bin2hex(random_bytes(8)) . '.png';
       $path   = GLPI_TMP_DIR . '/' . $file;
       imagepng($img, $path);
-      imagedestroy($img);
+      self::freeImage($img);
 
-      // ── Clean up intermediate QR / logo PNGs (this user's only) ──────────
-      $uid = (int)(Session::getLoginUserID() ?: 0);
-      foreach (glob(GLPI_TMP_DIR . '/qrcodelabel_qr_' . $uid . '_*.png') ?: [] as $f) {
-         @unlink($f);
-      }
-      foreach (glob(GLPI_TMP_DIR . '/qrcodelabel_logo_' . $uid . '_*.png') ?: [] as $f) {
-         @unlink($f);
-      }
+      self::cleanIntermediateFiles();
 
-      return $path;
+      return is_file($path) ? $path : false;
    }
 
    /**
@@ -1139,10 +1298,10 @@ class Label extends CommonDBTM {
       }
 
       $pngPaths = [];
-      foreach ($realAssets as $asset) {
+      foreach ($realAssets as $i => $asset) {
          $p = self::printPNG($asset, $params);
          if ($p) {
-            $pngPaths[] = $p;
+            $pngPaths[$i] = $p;
          }
       }
       if (empty($pngPaths)) {
@@ -1150,8 +1309,9 @@ class Label extends CommonDBTM {
       }
 
       $tapeSize = $params['tape_size'] ?? '36mm';
-      $zipName  = 'qrcodelabel_' . (int)(Session::getLoginUserID() ?: 0) . '_' . $tapeSize
-                . '_' . mt_rand() . '.zip';
+      $zipName  = 'qrcodelabel_' . (int)(Session::getLoginUserID() ?: 0) . '_'
+                . preg_replace('/[^a-z0-9]/i', '', (string)$tapeSize)
+                . '_' . bin2hex(random_bytes(8)) . '.zip';
       $zipPath  = GLPI_TMP_DIR . '/' . $zipName;
 
       $zip = new \ZipArchive();
@@ -1161,11 +1321,11 @@ class Label extends CommonDBTM {
       }
 
       foreach ($pngPaths as $i => $p) {
-         $asset = $realAssets[$i] ?? [];
+         // Keep the PNG <-> asset association even when a PNG failed.
+         $asset = $realAssets[$i];
          $id    = (int)($asset['id'] ?? 0);
-         $name  = preg_replace('/[^A-Za-z0-9_\-]/', '_',
-                               (string)($asset['name'] ?? 'asset'));
-         $name  = mb_substr($name, 0, 40);
+         $name  = preg_replace('/[^A-Za-z0-9_\-]/', '_', (string)($asset['name'] ?? 'asset'));
+         $name  = substr($name, 0, 40);
          $inZip = sprintf('asset_%d_%s.png', $id, $name);
          $zip->addFile($p, $inZip);
       }
@@ -1174,7 +1334,7 @@ class Label extends CommonDBTM {
       // Clean up individual PNGs — they're now inside the ZIP
       foreach ($pngPaths as $p) { @unlink($p); }
 
-      return $zipPath;
+      return is_file($zipPath) ? $zipPath : false;
    }
 
    // ── Token-based temp-file registry (PDF / PNG / ZIP) ────────────────────
@@ -1184,9 +1344,13 @@ class Label extends CommonDBTM {
       if (!isset($_SESSION['qrcodelabel_pdf_tokens']) || !is_array($_SESSION['qrcodelabel_pdf_tokens'])) {
          $_SESSION['qrcodelabel_pdf_tokens'] = [];
       }
-      // Prune stale tokens
+      // Prune tokens whose file is gone; delete files of this session that were
+      // never downloaded and are older than one hour.
       foreach ($_SESSION['qrcodelabel_pdf_tokens'] as $k => $v) {
-         if (!file_exists($v)) {
+         if (!is_string($v) || !file_exists($v)) {
+            unset($_SESSION['qrcodelabel_pdf_tokens'][$k]);
+         } else if (@filemtime($v) < time() - 3600) {
+            @unlink($v);
             unset($_SESSION['qrcodelabel_pdf_tokens'][$k]);
          }
       }
@@ -1200,7 +1364,7 @@ class Label extends CommonDBTM {
       }
       $path = $_SESSION['qrcodelabel_pdf_tokens'][$token];
       unset($_SESSION['qrcodelabel_pdf_tokens'][$token]);
-      return file_exists($path) ? $path : null;
+      return (is_string($path) && file_exists($path)) ? $path : null;
    }
 
 }

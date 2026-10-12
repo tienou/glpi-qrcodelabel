@@ -23,6 +23,11 @@ class Config extends CommonDBTM {
 
    static $rightname = 'plugin_qrcodelabel_config';
 
+   /** HTML-escape for output in attributes and text nodes. */
+   private static function e($value): string {
+      return htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+   }
+
    /**
     * Get the singleton config row from the database.
     *
@@ -55,7 +60,7 @@ class Config extends CommonDBTM {
       $config = self::getConfig();
 
       echo "<form name='form' method='post' action='"
-         . Plugin::getWebDir('qrcodelabel') . "/front/config.form.php'"
+         . self::e(Label::getWebPath() . '/front/config.form.php') . "'"
          . " enctype='multipart/form-data'>";
 
       echo "<div class='center'>";
@@ -115,8 +120,8 @@ class Config extends CommonDBTM {
       echo "<tr class='tab_bg_1'>";
       echo "<td>" . __('Owner text', 'qrcodelabel') . "</td><td colspan='3'>";
       echo "<input type='text' name='owner_text' value='"
-         . htmlspecialchars($config['owner_text'] ?? '', ENT_QUOTES) . "'"
-         . " size='50' placeholder='" . __('e.g. Property of: My Company', 'qrcodelabel') . "'>";
+         . self::e(Label::rawText($config['owner_text'] ?? '')) . "'"
+         . " size='50' maxlength='255' placeholder='" . self::e(__('e.g. Property of: My Company', 'qrcodelabel')) . "'>";
       echo "</td></tr>";
 
       // ── Output format (PDF / PNG / both) ───────────────────────────────
@@ -134,7 +139,7 @@ class Config extends CommonDBTM {
 
       // ── Save button ───────────────────────────────────────────────────────
       echo "<tr><td class='tab_bg_1' colspan='4' align='center'>";
-      echo "<input type='submit' name='saveConfig' value='" . __('Save') . "' class='submit'>";
+      echo "<input type='submit' name='saveConfig' value='" . self::e(__('Save')) . "' class='submit'>";
       echo "</td></tr>";
 
       // ── Logo section ──────────────────────────────────────────────────────
@@ -143,20 +148,20 @@ class Config extends CommonDBTM {
       $logoPath = GLPI_PLUGIN_DOC_DIR . '/qrcodelabel/logo.png';
       if (file_exists($logoPath)) {
          echo "<tr class='tab_bg_1'><td colspan='4' align='center'>";
-         echo "<img src='" . Plugin::getWebDir('qrcodelabel')
-            . "/front/document.send.php?file=qrcodelabel/logo.png' width='300'/>";
+         echo "<img src='" . self::e(Label::getWebPath() . '/front/document.send.php?file=qrcodelabel/logo.png&v=' . (int)@filemtime($logoPath))
+            . "' width='300' alt=''/>";
          echo "</td></tr>";
 
          echo "<tr class='tab_bg_1'><td colspan='4' align='center'>";
          echo "<input type='submit' name='dropLogo' value='"
-            . __('Delete the logo', 'qrcodelabel') . "' class='submit'>";
+            . self::e(__('Delete the logo', 'qrcodelabel')) . "' class='submit'>";
          echo "</td></tr>";
       }
 
       echo "<tr class='tab_bg_1'>";
-      echo "<td colspan='2' align='center'><input type='file' name='logo' /></td>";
+      echo "<td colspan='2' align='center'><input type='file' name='logo' accept='image/png,image/jpeg,image/gif' /></td>";
       echo "<td colspan='2'><input type='submit' name='uploadLogo' value='"
-         . __('Upload logo', 'qrcodelabel') . "' class='submit'></td>";
+         . self::e(__('Upload logo', 'qrcodelabel')) . "' class='submit'></td>";
       echo "</tr>";
 
       echo "</table></div>";
@@ -226,7 +231,7 @@ class Config extends CommonDBTM {
 
          // Name (editable) — use unique names per row
          echo "<td><input type='text' name='pp_name_{$pid}' value='"
-            . htmlspecialchars($row['name']) . "' size='15'></td>";
+            . self::e(Label::rawText($row['name'])) . "' size='15' maxlength='100'></td>";
 
          // Tape size
          echo "<td>";
@@ -266,11 +271,12 @@ class Config extends CommonDBTM {
          echo "<td>";
          echo "<button type='submit' class='submit' onclick=\"document.getElementById('qrcl_profile_action').value='update';"
             . "document.getElementById('qrcl_profile_id').value='{$pid}';\">"
-            . __('Save') . "</button> ";
-         echo "<button type='submit' class='submit' onclick=\"if(!confirm('" . __('Are you sure?') . "'))return false;"
+            . self::e(__('Save')) . "</button> ";
+         echo "<button type='submit' class='submit' onclick=\"if(!confirm("
+            . self::e(json_encode(__('Are you sure?'), JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP)) . "))return false;"
             . "document.getElementById('qrcl_profile_action').value='delete';"
             . "document.getElementById('qrcl_profile_id').value='{$pid}';\">"
-            . __('Delete') . "</button>";
+            . self::e(__('Delete')) . "</button>";
          echo "</td></tr>";
       }
 
@@ -281,8 +287,8 @@ class Config extends CommonDBTM {
 
       echo "<tr class='tab_bg_1'>";
 
-      echo "<td><input type='text' name='pp_name_new' value='' size='15' "
-         . "placeholder='" . __('Name') . "'></td>";
+      echo "<td><input type='text' name='pp_name_new' value='' size='15' maxlength='100' "
+         . "placeholder='" . self::e(__('Name')) . "'></td>";
 
       echo "<td>";
       Dropdown::showFromArray('pp_tape_new', $tapeSizeOptions,
@@ -314,7 +320,7 @@ class Config extends CommonDBTM {
 
       echo "<td><button type='submit' class='submit' onclick=\"document.getElementById('qrcl_profile_action').value='add';"
          . "document.getElementById('qrcl_profile_id').value='new';\">"
-         . __('Add') . "</button></td>";
+         . self::e(__('Add')) . "</button></td>";
 
       echo "</tr></table></div>";
    }

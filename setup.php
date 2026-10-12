@@ -39,7 +39,7 @@ use Glpi\Plugin\Hooks;
 use GlpiPlugin\Qrcodelabel\Label;
 use GlpiPlugin\Qrcodelabel\Profile;
 
-define("PLUGIN_QRCODELABEL_VERSION", "1.4.6");
+define("PLUGIN_QRCODELABEL_VERSION", "1.5.0");
 
 // Minimal GLPI version, inclusive
 define('PLUGIN_QRCODELABEL_MIN_GLPI', '10.0.0');
@@ -47,7 +47,8 @@ define('PLUGIN_QRCODELABEL_MIN_GLPI', '10.0.0');
 define('PLUGIN_QRCODELABEL_MAX_GLPI', '11.0.99');
 
 /**
- * Supported asset types for label generation.
+ * Native GLPI asset types supported for label generation.
+ * GLPI 11 custom assets are added dynamically, see plugin_qrcodelabel_get_itemtypes().
  */
 define('PLUGIN_QRCODELABEL_ITEMTYPES', [
    'Computer',
@@ -58,37 +59,100 @@ define('PLUGIN_QRCODELABEL_ITEMTYPES', [
    'Phone',
 ]);
 
+/** Base class of GLPI 11 custom assets (absent on GLPI 10). */
+define('PLUGIN_QRCODELABEL_CUSTOM_ASSET_CLASS', 'Glpi\\Asset\\Asset');
+
+/**
+ * Class names of the active GLPI 11 custom asset definitions
+ * (e.g. Glpi\CustomAsset\ServerAsset). Empty on GLPI 10.
+ *
+ * Read from the definitions table because plugins are initialised before GLPI
+ * boots its custom asset definitions (AssetDefinitionManager::bootDefinitions()).
+ *
+ * @return string[]
+ */
+function plugin_qrcodelabel_get_custom_asset_types(): array {
+   global $DB;
+
+   static $types = null;
+   if ($types !== null) {
+      return $types;
+   }
+   $types = [];
+
+   $definitionClass = 'Glpi\\Asset\\AssetDefinition';
+   if (!class_exists($definitionClass) || !($DB instanceof DBmysql)) {
+      return $types;
+   }
+   try {
+      $iterator = $DB->request([
+         'SELECT' => ['system_name'],
+         'FROM'   => $definitionClass::getTable(),
+         'WHERE'  => ['is_active' => 1],
+      ]);
+      foreach ($iterator as $row) {
+         $systemName = (string)$row['system_name'];
+         if (preg_match('/^[A-Za-z][A-Za-z0-9]*$/', $systemName)) {
+            $types[] = $definitionClass::getCustomObjectNamespace() . '\\'
+               . $systemName . $definitionClass::getCustomObjectClassSuffix();
+         }
+      }
+   } catch (\Throwable $e) {
+      // Database not ready (install/update in progress): no custom assets.
+      $types = [];
+   }
+   return $types;
+}
+
+/**
+ * All item types the plugin can label (native assets + GLPI 11 custom assets).
+ *
+ * @return string[]
+ */
+function plugin_qrcodelabel_get_itemtypes(): array {
+   return array_merge(PLUGIN_QRCODELABEL_ITEMTYPES, plugin_qrcodelabel_get_custom_asset_types());
+}
+
+/**
+ * Whether labels can be generated for the given item type.
+ */
+function plugin_qrcodelabel_is_supported_itemtype($itemtype): bool {
+   if (!is_string($itemtype) || $itemtype === '') {
+      return false;
+   }
+   if (in_array($itemtype, PLUGIN_QRCODELABEL_ITEMTYPES, true)) {
+      return true;
+   }
+   // GLPI 11 custom assets: only classes of an active definition.
+   return in_array($itemtype, plugin_qrcodelabel_get_custom_asset_types(), true)
+      && is_a($itemtype, PLUGIN_QRCODELABEL_CUSTOM_ASSET_CLASS, true);
+}
+
 function plugin_init_qrcodelabel() {
    global $PLUGIN_HOOKS;
 
    $PLUGIN_HOOKS[Hooks::CSRF_COMPLIANT]['qrcodelabel'] = true;
 
    // Register the Profile tab so admins can grant rights per profile.
-   // Plugin::registerClass(..., ['addtabon' => [...]]) is supported on both GLPI
-   // 10 and 11 (it delegates to CommonGLPI::registerStandardTab); the
-   // method_exists() guard is purely defensive.
-   if (method_exists('Plugin', 'registerClass')) {
-      Plugin::registerClass(Profile::class, ['addtabon' => ['Profile']]);
-   }
+   // Plugin::registerClass() exists on both GLPI 10 and 11 (it delegates to
+   // CommonGLPI::registerStandardTab()).
+   Plugin::registerClass(Profile::class, ['addtabon' => ['Profile']]);
 
-   if (Session::haveRight('plugin_qrcodelabel_label', CREATE)
-         || Session::haveRight('plugin_qrcodelabel_config', UPDATE)) {
-
-      $PLUGIN_HOOKS[Hooks::PRE_ITEM_PURGE]['qrcodelabel']
-         = ['Profile' => [Profile::class, 'cleanProfiles']];
+   if (Session::haveRight('plugin_qrcodelabel_label', CREATE)) {
+      // "QR Label" tab on every supported asset form (native + custom assets).
+      Plugin::registerClass(Label::class, ['addtabon' => plugin_qrcodelabel_get_itemtypes()]);
 
       // Massive Action
       $PLUGIN_HOOKS[Hooks::USE_MASSIVE_ACTION]['qrcodelabel'] = 1;
-
-      // Menu registration
-      $PLUGIN_HOOKS[Hooks::MENU_TOADD]['qrcodelabel'] = ['tools' => Label::class];
-      $PLUGIN_HOOKS[Hooks::HELPDESK_MENU_ENTRY]['qrcodelabel'] = false;
    }
 
-   // Config page
-   if (Session::haveRight('config', UPDATE)) {
+   if (Session::haveRight('plugin_qrcodelabel_config', UPDATE)) {
+      // Menu entry (Tools > QR Code Labels) and gear icon in Setup > Plugins
+      // both open the configuration page, which requires this right.
+      $PLUGIN_HOOKS[Hooks::MENU_TOADD]['qrcodelabel'] = ['tools' => Label::class];
       $PLUGIN_HOOKS[Hooks::CONFIG_PAGE]['qrcodelabel'] = 'front/config.php';
    }
+   $PLUGIN_HOOKS[Hooks::HELPDESK_MENU_ENTRY]['qrcodelabel'] = false;
 }
 
 function plugin_version_qrcodelabel() {

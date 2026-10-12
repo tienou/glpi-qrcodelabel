@@ -12,7 +12,12 @@
 use GlpiPlugin\Qrcodelabel\Config;
 use GlpiPlugin\Qrcodelabel\Printprofile;
 
-// GLPI 11: bootstrap is handled by Symfony LegacyFileLoadController.
+// GLPI 10 serves plugin front files as plain PHP scripts: bootstrap GLPI here
+// (this also validates the CSRF token of the POST). GLPI 11 has already booted
+// through its Symfony kernel (LegacyFileLoadController) and defined GLPI_ROOT.
+if (!defined('GLPI_ROOT')) {
+   include __DIR__ . '/../../../inc/includes.php';
+}
 
 // Gated on the plugin's own right (not core "config") so a profile such as
 // Technician can manage QR Code Label settings without full GLPI setup rights.
@@ -123,15 +128,28 @@ if ($profileAction === 'update' && $profileId > 0) {
    $tmpFile = $_FILES['logo']['tmp_name'] ?? '';
    if ($tmpFile && is_uploaded_file($tmpFile)) {
       $finfo = @getimagesize($tmpFile);
+      // Re-encode every accepted image as a real PNG: the label renderers read
+      // logo.png as PNG (a JPEG/GIF stored under that name broke PDF generation),
+      // and re-encoding drops any non-image payload appended to the file.
+      $img = false;
       if ($finfo && in_array($finfo[2], [IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_GIF], true)) {
+         $data = @file_get_contents($tmpFile);
+         $img  = $data !== false ? @imagecreatefromstring($data) : false;
+      }
+      if ($img !== false) {
          if (!is_dir($docDir)) {
             mkdir($docDir, 0755, true);
          }
-         if (is_file($docDir . '/logo.png')) {
-            @unlink($docDir . '/logo.png');
+         if (!imageistruecolor($img)) {
+            imagepalettetotruecolor($img);
          }
-         move_uploaded_file($tmpFile, $docDir . '/logo.png');
-         Session::addMessageAfterRedirect(__('Logo uploaded successfully.', 'qrcodelabel'));
+         imagealphablending($img, false);
+         imagesavealpha($img, true);
+         if (@imagepng($img, $docDir . '/logo.png')) {
+            Session::addMessageAfterRedirect(__('Logo uploaded successfully.', 'qrcodelabel'));
+         } else {
+            Session::addMessageAfterRedirect(__('The logo could not be saved.', 'qrcodelabel'), false, ERROR);
+         }
       } else {
          Session::addMessageAfterRedirect(
             __('Invalid file: only PNG, JPEG and GIF images are accepted.', 'qrcodelabel'),
@@ -158,32 +176,23 @@ if ($profileAction === 'update' && $profileId > 0) {
 
    // Save configuration
    $config = new Config();
-   if (!$config->getFromDB(1)) {
-      // Create if missing
-      global $DB;
-      $DB->insert('glpi_plugin_qrcodelabel_configs', [
-         'id'            => 1,
-         'tape_size'     => $tapeSize,
-         'color_mode'    => $colorMode,
-         'show_date'     => $showDate,
-         'page_size'     => $pageSize,
-         'orientation'   => $orientation,
-         'owner_text'    => $ownerText,
-         'output_format' => $outputFormat,
-         'show_location' => $showLocation,
-      ]);
+   $values = [
+      'id'            => 1,
+      'tape_size'     => $tapeSize,
+      'color_mode'    => $colorMode,
+      'show_date'     => $showDate,
+      'page_size'     => $pageSize,
+      'orientation'   => $orientation,
+      'owner_text'    => $ownerText,
+      'output_format' => $outputFormat,
+      'show_location' => $showLocation,
+   ];
+   if ($config->getFromDB(1)) {
+      $config->update($values);
    } else {
-      $config->update([
-         'id'            => 1,
-         'tape_size'     => $tapeSize,
-         'color_mode'    => $colorMode,
-         'show_date'     => $showDate,
-         'page_size'     => $pageSize,
-         'orientation'   => $orientation,
-         'owner_text'    => $ownerText,
-         'output_format' => $outputFormat,
-         'show_location' => $showLocation,
-      ]);
+      // Create if missing (through CommonDBTM so input escaping is handled
+      // the same way as for update() on GLPI 10 and 11)
+      $config->add($values);
    }
    Session::addMessageAfterRedirect(__('Configuration saved.', 'qrcodelabel'));
 }
