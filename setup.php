@@ -39,7 +39,7 @@ use Glpi\Plugin\Hooks;
 use GlpiPlugin\Qrcodelabel\Label;
 use GlpiPlugin\Qrcodelabel\Profile;
 
-define("PLUGIN_QRCODELABEL_VERSION", "1.5.2");
+define("PLUGIN_QRCODELABEL_VERSION", "1.5.3");
 
 // Minimal GLPI version, inclusive
 define('PLUGIN_QRCODELABEL_MIN_GLPI', '10.0.0');

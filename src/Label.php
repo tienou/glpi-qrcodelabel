@@ -1091,17 +1091,17 @@ class Label extends CommonDBTM {
       return is_file($pdfPath) ? $pdfPath : false;
    }
 
-   /** Avery: logo and all text on the left; full-height QR on the right. */
+   /** Avery: full-height QR on the left; logo and all text on the right. */
    private static function renderAveryLabel(\TCPDF $pdf, array $asset, array $ts,
          array $cm, string $colorMode, array $opt, callable $measure,
          float $x, float $y, string $logoPath): void {
       // 1 mm outside each edge, in addition to the QR image's four-module
       // quiet zone. The QR size never depends on the presence/shape of a logo.
       $qrSize = $ts['qr_size'];
-      $qrX = $x + $ts['label_w'] - 1 - $qrSize;
+      $qrX = $x + 1;
       $qrY = $y + ($ts['label_h'] - $qrSize) / 2;
-      $textX = $x + 1.5;
-      $textW = $qrX - $textX - 1.5;
+      $textX = $qrX + $qrSize + 1.5;
+      $textW = $ts['label_w'] - $qrSize - 4;
       $logoInfo = $logoPath !== '' ? @getimagesize($logoPath) : false;
       $hasLogo = $logoInfo && $logoInfo[0] > 0 && $logoInfo[1] > 0;
       if ($hasLogo) {

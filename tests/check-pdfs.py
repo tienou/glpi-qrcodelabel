@@ -14,7 +14,7 @@ for name, path in results.items():
         if name == 'avery':
             tops = [38.25, 142.85, 247.5, 352.1, 456.75, 561.35, 666]
             for index, image in enumerate(pdf.pages[0].images):
-                assert abs(image['x0'] - (72 + index % 2 * 270 + 39.1 * 72 / 25.4)) < .01
+                assert abs(image['x0'] - (72 + index % 2 * 270 + 1 * 72 / 25.4)) < .01
                 assert abs(image['top'] - (tops[index // 2] + 1 * 72 / 25.4)) < .01
                 assert abs(image['width'] - 29.75 * 72 / 25.4) < .01
             # A unique asset appears exactly once in its expected label, on page 2.
@@ -24,9 +24,9 @@ for name, path in results.items():
             dx, dy = (1.2, -.8) if name == 'offset' else (0, 0)
             first = pdf.pages[0].images[0]
             second = pdf.pages[1].images[0]
-            assert abs(first['x0'] - (342 + (39.1 + dx) * 72 / 25.4)) < .01
+            assert abs(first['x0'] - (342 + (1 + dx) * 72 / 25.4)) < .01
             assert abs(first['top'] - (666 + (1 + dy) * 72 / 25.4)) < .01
-            assert abs(second['x0'] - (72 + (39.1 + dx) * 72 / 25.4)) < .01
+            assert abs(second['x0'] - (72 + (1 + dx) * 72 / 25.4)) < .01
         if name == 'brother':
             assert abs(pdf.pages[0].width - 595.276) < .01
             # Avery's skip/calibration must not affect the existing tape layout.
@@ -39,8 +39,8 @@ for name in ('wide_logo', 'square_logo'):
         logo, qr = page.images
         assert abs(qr['width'] - 29.75 * 72 / 25.4) < .01
         assert abs(qr['height'] - qr['width']) < .01
-        assert logo['x1'] < qr['x0']
-        assert max(c['x1'] for c in page.chars) < qr['x0']
+        assert logo['x0'] > qr['x1']
+        assert min(c['x0'] for c in page.chars if c['top'] < 140) > qr['x1']
         assert min(c['top'] for c in page.chars) > logo['bottom']
         for expected in ('L001', 'TEST-SERIAL-1', '02/11/2026', 'Upper Campus', 'Property of TCA'):
             assert expected in page.extract_text(), (name, expected)
