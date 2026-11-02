@@ -44,7 +44,7 @@ define("PLUGIN_QRCODELABEL_VERSION", "1.5.1");
 // Minimal GLPI version, inclusive
 define('PLUGIN_QRCODELABEL_MIN_GLPI', '10.0.0');
 // Maximum GLPI version, exclusive
-define('PLUGIN_QRCODELABEL_MAX_GLPI', '11.0.99');
+define('PLUGIN_QRCODELABEL_MAX_GLPI', '13.0.0');
 
 /**
  * Native GLPI asset types supported for label generation.
@@ -131,7 +131,11 @@ function plugin_qrcodelabel_is_supported_itemtype($itemtype): bool {
 function plugin_init_qrcodelabel() {
    global $PLUGIN_HOOKS;
 
-   $PLUGIN_HOOKS[Hooks::CSRF_COMPLIANT]['qrcodelabel'] = true;
+   // GLPI 12 removed this declaration; CSRF protection is handled by core.
+   // Keep the hook on GLPI 10/11, where it is still required.
+   if (defined(Hooks::class . '::CSRF_COMPLIANT')) {
+      $PLUGIN_HOOKS[Hooks::CSRF_COMPLIANT]['qrcodelabel'] = true;
+   }
 
    // Register the Profile tab so admins can grant rights per profile.
    // Plugin::registerClass() exists on both GLPI 10 and 11 (it delegates to
