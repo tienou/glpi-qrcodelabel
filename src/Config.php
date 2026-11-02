@@ -17,11 +17,23 @@ use Html;
 use Plugin;
 use Session;
 
+// GLPI 12 types CommonGLPI::$rightname; GLPI 10/11 leave it untyped.
+// A child property must match the parent type exactly on each version.
+if ((new \ReflectionProperty(\CommonGLPI::class, 'rightname'))->hasType()) {
+   trait ConfigRightnameProperty {
+      public static string $rightname = '';
+   }
+} else {
+   trait ConfigRightnameProperty {
+      public static $rightname = '';
+   }
+}
+
 class Config extends CommonDBTM {
 
    static $table = 'glpi_plugin_qrcodelabel_configs';
 
-   static $rightname = 'plugin_qrcodelabel_config';
+   use ConfigRightnameProperty;
 
    /** HTML-escape for output in attributes and text nodes. */
    private static function e($value): string {
@@ -330,3 +342,5 @@ class Config extends CommonDBTM {
    }
 }
 
+// Set the class-specific permission after composing the inherited property.
+Config::$rightname = 'plugin_qrcodelabel_config';

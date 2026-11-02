@@ -1,6 +1,7 @@
 <?php
 // Integration smoke test with real TCPDF, QR encoding and GD; no GLPI database.
-class CommonDBTM {}
+class CommonGLPI { public static $rightname = ''; }
+class CommonDBTM extends CommonGLPI {}
 class Session {
    public static function getLoginUserID() { return 1; }
 }

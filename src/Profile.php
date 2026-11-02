@@ -17,9 +17,21 @@ use Profile as GlpiProfile;
 use ProfileRight;
 use Session;
 
+// GLPI 12 types CommonGLPI::$rightname; GLPI 10/11 leave it untyped.
+// A child property must match the parent type exactly on each version.
+if ((new \ReflectionProperty(\CommonGLPI::class, 'rightname'))->hasType()) {
+   trait ProfileRightnameProperty {
+      public static string $rightname = '';
+   }
+} else {
+   trait ProfileRightnameProperty {
+      public static $rightname = '';
+   }
+}
+
 class Profile extends CommonGLPI {
 
-   static $rightname = "profile";
+   use ProfileRightnameProperty;
 
    static function getTypeName($nb = 0) {
       return __('QR Code Label', 'qrcodelabel');
@@ -166,3 +178,6 @@ class Profile extends CommonGLPI {
       }
    }
 }
+
+// Set the class-specific permission after composing the inherited property.
+Profile::$rightname = 'profile';

@@ -28,9 +28,21 @@ use Session;
  *
  * No external vendor dependencies — TCPDF ships with GLPI 10 and 11.
  */
+// GLPI 12 types CommonGLPI::$rightname; GLPI 10/11 leave it untyped.
+// A child property must match the parent type exactly on each version.
+if ((new \ReflectionProperty(\CommonGLPI::class, 'rightname'))->hasType()) {
+   trait LabelRightnameProperty {
+      public static string $rightname = '';
+   }
+} else {
+   trait LabelRightnameProperty {
+      public static $rightname = '';
+   }
+}
+
 class Label extends CommonDBTM {
 
-   static $rightname = 'plugin_qrcodelabel_label';
+   use LabelRightnameProperty;
 
    /** Maximum number of copies per asset (PDF sheet). */
    public const MAX_COPIES = 50;
@@ -1452,3 +1464,5 @@ class Label extends CommonDBTM {
 
 }
 
+// Set the class-specific permission after composing the inherited property.
+Label::$rightname = 'plugin_qrcodelabel_label';
