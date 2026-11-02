@@ -1,5 +1,9 @@
 # QR Code Label — GLPI Plugin
 
+> **Avery 61528 fork:** adds 14-label US Letter laser sheets, starting position
+> and printer calibration. Based on upstream 1.5.0; fork version 1.5.1.
+> See [installation and printing instructions](docs/avery-61528.md).
+
 [![GLPI Version](https://img.shields.io/badge/GLPI-10.0%20%7C%2011.0-blue)](https://glpi-project.org/)
 [![PHP Version](https://img.shields.io/badge/PHP-7.4%E2%80%938.4-8892BF)](https://php.net/)
 [![License](https://img.shields.io/badge/License-AGPL%20v3-green)](LICENSE)
@@ -181,3 +185,4 @@ Contributions are welcome! Please open an issue or submit a pull request on [Git
 ## Author
 
 **Etienne Gaillard**
+

@@ -46,6 +46,13 @@ class Label extends CommonDBTM {
     *   - bottom_base : baseline of the last line (owner text / inventory number)
     */
    private static array $tapeSizes = [
+      'avery61528' => [
+         'label_w' => 69.85, 'label_h' => 31.75, 'qr_size' => 18,
+         'font_name' => 10, 'font_type' => 6, 'font_sn' => 6.5,
+         'font_loc' => 6, 'font_inv' => 6,
+         'logo_h' => 5, 'top_m' => 3, 'bot_m' => 3,
+         'name_base' => 7, 'text_top' => 3, 'bottom_base' => 28,
+      ],
       '24mm' => [
          'label_w' => 70, 'label_h' => 24, 'qr_size' => 13,
          'font_name' => 7, 'font_type' => 4.5, 'font_sn' => 5,
@@ -235,14 +242,20 @@ class Label extends CommonDBTM {
       }
       echo "</td></tr>";
 
-      // Copies only make sense on a PDF sheet: PNG export produces one image
-      // per asset (copies are set in the printer app).
-      if (self::getOutputFormat() !== 'png') {
-         echo "<tr class='" . self::e($rowClass) . "'>";
-         echo "<td>" . self::e(__('Number of copies', 'qrcodelabel')) . "</td><td>";
-         echo "<input type='number' name='nb_copies' value='1' min='1' max='" . self::MAX_COPIES
-            . "' step='1' class='form-control' style='width: 7em'>";
-         echo "</td></tr>";
+      // PDF copies also apply to Avery when the global tape format is PNG.
+      echo "<tr class='" . self::e($rowClass) . "'>";
+      echo "<td>" . self::e(__('Number of copies', 'qrcodelabel')) . "</td><td>";
+      echo "<input type='number' name='nb_copies' value='1' min='1' max='" . self::MAX_COPIES
+         . "' step='1' class='form-control' style='width: 7em'>";
+      echo "</td></tr>";
+      echo "<tr class='" . self::e($rowClass) . "'><td>"
+         . self::e(__('First label position (Avery 61528)', 'qrcodelabel')) . "</td><td>";
+      echo "<input type='number' name='start_position' value='1' min='1' max='14' step='1' class='form-control' style='width: 7em'>";
+      echo "<small>1 = top left, 2 = top right, then the next row. Avery always uses PDF / Letter / Portrait.</small></td></tr>";
+      foreach (['offset_x' => 'Horizontal adjustment (mm)', 'offset_y' => 'Vertical adjustment (mm)'] as $field => $caption) {
+         echo "<tr class='" . self::e($rowClass) . "'><td>" . self::e(__($caption, 'qrcodelabel')) . "</td><td>";
+         echo "<input type='number' name='" . $field . "' value='0' min='-5' max='5' step='0.1' class='form-control' style='width: 7em'>";
+         echo "<small>Avery only. Positive values move right / down.</small></td></tr>";
       }
    }
 
@@ -336,8 +349,11 @@ class Label extends CommonDBTM {
    /**
     * Rendering parameters for a print profile + global configuration.
     */
-   static function buildParams(array $profile, array $config): array {
+   static function buildParams(array $profile, array $config, array $input = []): array {
       return [
+         'start_position' => Sheetlayout::sanitizeStart($input['start_position'] ?? 1),
+         'offset_x'     => Sheetlayout::sanitizeOffset($input['offset_x'] ?? 0),
+         'offset_y'     => Sheetlayout::sanitizeOffset($input['offset_y'] ?? 0),
          'tape_size'     => $profile['tape_size'],
          'color_mode'    => $profile['color_mode'],
          'show_date'     => (bool)$profile['show_date'],
@@ -397,7 +413,7 @@ class Label extends CommonDBTM {
          $config = Config::getConfig();
          $ok = self::emitDownloadLinks(
             $assets,
-            self::buildParams($profile, $config),
+            self::buildParams($profile, $config, $input),
             self::getOutputFormat($config),
             Html::getBackUrl()
          );
@@ -433,6 +449,10 @@ class Label extends CommonDBTM {
     */
    static function emitDownloadLinks(array $assets, array $params, string $format, string $backUrl = ''): bool {
       $files = [];
+      // A sheet profile is independent of the global Brother PNG preference.
+      if (($params['tape_size'] ?? '') === 'avery61528') {
+         $format = 'pdf';
+      }
 
       if ($format === 'pdf' || $format === 'both') {
          $pdfPath = self::printPDF($assets, $params);
@@ -888,6 +908,11 @@ class Label extends CommonDBTM {
       $colorMode = $params['color_mode'] ?? 'bw';
       $pageSize  = strtoupper($params['page_size'] ?? 'A4');
       $isLandscape = (($params['orientation'] ?? 'Portrait') === 'Landscape');
+      $isAvery = $tapeSize === 'avery61528';
+      if ($isAvery) {
+         $pageSize = 'LETTER';
+         $isLandscape = false;
+      }
 
       if (!isset(self::$tapeSizes[$tapeSize])) {
          $tapeSize = '36mm';
@@ -940,6 +965,13 @@ class Label extends CommonDBTM {
       $cols    = max(1, (int)(($pageW - 2 * $marginX) / $labelW));
       $rows    = max(1, (int)(($pageH - 2 * $marginY) / ($labelH + $gapY)));
       $perPage = $cols * $rows;
+      if ($isAvery) {
+         $cols = 2;
+         $rows = 7;
+         $perPage = Sheetlayout::CAPACITY;
+         $skip = Sheetlayout::sanitizeStart($params['start_position'] ?? 1) - 1;
+         $assets = array_merge(array_fill(0, $skip, null), array_values($assets));
+      }
 
       $measure = static function (string $text, float $pt, string $style) use ($pdf): float {
          $pdf->SetFont('helvetica', $style, $pt);
@@ -962,6 +994,9 @@ class Label extends CommonDBTM {
          $row = (int)($pi / $cols);
          $x   = $marginX + $col * $labelW;
          $y   = $marginY + $row * ($labelH + $gapY);
+         if ($isAvery) {
+            [$x, $y] = Sheetlayout::position($pi, $params['offset_x'] ?? 0, $params['offset_y'] ?? 0);
+         }
 
          // Blank slot
          if ($asset === null) {
@@ -1368,3 +1403,4 @@ class Label extends CommonDBTM {
    }
 
 }
+

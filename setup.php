@@ -39,7 +39,7 @@ use Glpi\Plugin\Hooks;
 use GlpiPlugin\Qrcodelabel\Label;
 use GlpiPlugin\Qrcodelabel\Profile;
 
-define("PLUGIN_QRCODELABEL_VERSION", "1.5.0");
+define("PLUGIN_QRCODELABEL_VERSION", "1.5.1");
 
 // Minimal GLPI version, inclusive
 define('PLUGIN_QRCODELABEL_MIN_GLPI', '10.0.0');
@@ -202,3 +202,4 @@ function plugin_qrcodelabel_check_prerequisites() {
 function plugin_qrcodelabel_check_config($verbose = false) {
    return true;
 }
+

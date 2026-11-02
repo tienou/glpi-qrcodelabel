@@ -29,7 +29,7 @@ Session::checkRight('plugin_qrcodelabel_config', UPDATE);
 $docDir = GLPI_PLUGIN_DOC_DIR . '/qrcodelabel';
 
 // Whitelists for input validation
-$validTapeSizes    = ['24mm', '25mm', '36mm', '50mm'];
+$validTapeSizes    = ['24mm', '25mm', '36mm', '50mm', 'avery61528'];
 $validColorModes   = ['bw', 'mono', 'color', 'inverse', 'inverse_mono'];
 $validPageSizes    = ['A4', 'A3', 'LETTER', 'LEGAL'];
 $validOrientations = ['Portrait', 'Landscape'];
@@ -198,3 +198,4 @@ if ($profileAction === 'update' && $profileId > 0) {
 }
 
 Html::back();
+

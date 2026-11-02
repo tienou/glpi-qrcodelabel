@@ -73,12 +73,13 @@ class Config extends CommonDBTM {
 
       // ── Tape size ─────────────────────────────────────────────────────────
       echo "<tr class='tab_bg_1'>";
-      echo "<td>" . __('Default tape size', 'qrcodelabel') . "</td><td>";
+      echo "<td>" . __('Default label format', 'qrcodelabel') . "</td><td>";
       Dropdown::showFromArray('tape_size', [
          '24mm' => '24 mm (Brother)',
          '25mm' => '25 mm',
          '36mm' => '36 mm (Brother)',
          '50mm' => '50 mm',
+         'avery61528' => 'Avery 61528 (14 / Letter)',
       ], ['value' => $config['tape_size'], 'width' => '170']);
       echo "</td>";
 
@@ -137,6 +138,8 @@ class Config extends CommonDBTM {
       ]);
       echo "</td></tr>";
 
+      echo "<tr><td colspan='4'><small>Avery 61528 profiles always generate a Letter portrait PDF (14 labels), regardless of the page and output defaults.</small></td></tr>";
+
       // ── Save button ───────────────────────────────────────────────────────
       echo "<tr><td class='tab_bg_1' colspan='4' align='center'>";
       echo "<input type='submit' name='saveConfig' value='" . self::e(__('Save')) . "' class='submit'>";
@@ -193,6 +196,7 @@ class Config extends CommonDBTM {
          '25mm' => '25 mm',
          '36mm' => '36 mm (Brother)',
          '50mm' => '50 mm',
+         'avery61528' => 'Avery 61528 (14 / Letter)',
       ];
       $pageSizeOptions = ['A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal'];
 
@@ -209,7 +213,7 @@ class Config extends CommonDBTM {
       // Table header
       echo "<tr class='tab_bg_2'>";
       echo "<th>" . __('Name') . "</th>";
-      echo "<th>" . __('Tape size', 'qrcodelabel') . "</th>";
+      echo "<th>" . __('Label format', 'qrcodelabel') . "</th>";
       echo "<th>" . __('Color mode', 'qrcodelabel') . "</th>";
       echo "<th>" . __('Show inventory date', 'qrcodelabel') . "</th>";
       echo "<th>" . __('Page size', 'qrcodelabel') . "</th>";
@@ -325,3 +329,4 @@ class Config extends CommonDBTM {
       echo "</tr></table></div>";
    }
 }
+
