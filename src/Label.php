@@ -47,7 +47,7 @@ class Label extends CommonDBTM {
     */
    private static array $tapeSizes = [
       'avery61528' => [
-         'label_w' => 69.85, 'label_h' => 31.75, 'qr_size' => 18,
+         'label_w' => 69.85, 'label_h' => 31.75, 'qr_size' => 29.75,
          'font_name' => 10, 'font_type' => 6, 'font_sn' => 6.5,
          'font_loc' => 6, 'font_inv' => 6,
          'logo_h' => 5, 'top_m' => 3, 'bot_m' => 3,
@@ -1009,6 +1009,12 @@ class Label extends CommonDBTM {
             $pdf->Rect($x, $y, $labelW, $labelH, 'F');
          }
 
+         if ($isAvery) {
+            self::renderAveryLabel($pdf, $asset, $ts, $cm, $colorMode, $layoutOpt,
+               $measure, $x, $y, $hasLogo ? $logoPath : '');
+            continue;
+         }
+
          // ── Left column: logo (top) + QR (below) ──────────────────────────
          $leftColX    = $x + 2;
          $topMargin   = $ts['top_m'];
@@ -1083,6 +1089,48 @@ class Label extends CommonDBTM {
       self::cleanIntermediateFiles();
 
       return is_file($pdfPath) ? $pdfPath : false;
+   }
+
+   /** Avery: logo and all text on the left; full-height QR on the right. */
+   private static function renderAveryLabel(\TCPDF $pdf, array $asset, array $ts,
+         array $cm, string $colorMode, array $opt, callable $measure,
+         float $x, float $y, string $logoPath): void {
+      // 1 mm outside each edge, in addition to the QR image's four-module
+      // quiet zone. The QR size never depends on the presence/shape of a logo.
+      $qrSize = $ts['qr_size'];
+      $qrX = $x + $ts['label_w'] - 1 - $qrSize;
+      $qrY = $y + ($ts['label_h'] - $qrSize) / 2;
+      $textX = $x + 1.5;
+      $textW = $qrX - $textX - 1.5;
+      $logoInfo = $logoPath !== '' ? @getimagesize($logoPath) : false;
+      $hasLogo = $logoInfo && $logoInfo[0] > 0 && $logoInfo[1] > 0;
+      if ($hasLogo) {
+         $ratio = $logoInfo[0] / $logoInfo[1];
+         $logoW = min($textW, 7 * $ratio);
+         $logoH = $logoW / $ratio;
+         $useLogo = ($cm['invert_logo'] || $colorMode === 'mono')
+            ? self::processLogo($logoPath, $colorMode) : $logoPath;
+         $pdf->Image($useLogo, $textX, $y + 1.5, $logoW, $logoH, '', '', '', false, 300);
+         $ts['text_top'] = 1.5 + $logoH + 1.5;
+         $ts['name_base'] = $ts['text_top'] + 3;
+      } else {
+         $ts['text_top'] = 2;
+         $ts['name_base'] = 6;
+      }
+      $ts['bottom_base'] = $ts['label_h'] - 2;
+      $fitW = $textW - 2 * $pdf->getCellPaddings()['L'];
+      foreach (self::layoutText($ts, $asset, $opt, $fitW, $measure) as $line) {
+         $color = $cm[$line['color']];
+         $pdf->SetFont('helvetica', $line['style'], $line['pt']);
+         $pdf->SetTextColor($color[0], $color[1], $color[2]);
+         $pdf->SetXY($textX, $y + $line['baseline']);
+         $pdf->Cell($textW, 0, $line['text'], 0, 0, $line['align'], false, '', 0, false, 'L', 'T');
+      }
+      $qrPng = !empty($asset['url'])
+         ? self::generateQrPng($asset['url'], $cm['qr_fg'], $cm['qr_bg']) : false;
+      if ($qrPng && file_exists($qrPng)) {
+         $pdf->Image($qrPng, $qrX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
+      }
    }
 
    /**

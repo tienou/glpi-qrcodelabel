@@ -5,9 +5,9 @@ class Session {
    public static function getLoginUserID() { return 1; }
 }
 function __($text, $domain = '') { return $text; }
-define('PLUGIN_QRCODELABEL_VERSION', '1.5.1');
+define('PLUGIN_QRCODELABEL_VERSION', '1.5.2');
 define('GLPI_VERSION', '11.0.0');
-define('GLPI_TMP_DIR', sys_get_temp_dir() . '/qrcodelabel-test-' . getmypid());
+define('GLPI_TMP_DIR', sys_get_temp_dir() . '/qrcodelabel-test-' . getmypid() . '-' . bin2hex(random_bytes(4)));
 define('GLPI_PLUGIN_DOC_DIR', GLPI_TMP_DIR);
 mkdir(GLPI_TMP_DIR, 0700, true);
 require_once getenv('TCPDF_PATH') ?: '/usr/share/php/tcpdf/tcpdf.php';
@@ -46,6 +46,20 @@ if (!Label::emitDownloadLinks(array_slice($assets, 0, 1), $params, 'png')) {
 }
 $download = $_SESSION['qrcodelabel_downloads']['files'][0];
 $outputs['png_override'] = Label::resolveTmpFile($download['token']);
+// Check that wide and square logos cannot shrink or overlap the QR.
+$params['start_position'] = 1;
+$params['offset_x'] = 0;
+$params['offset_y'] = 0;
+$params['show_date'] = true;
+$params['show_location'] = true;
+mkdir(GLPI_PLUGIN_DOC_DIR . '/qrcodelabel', 0700, true);
+foreach (['wide_logo' => [400, 70], 'square_logo' => [100, 100]] as $name => [$width, $height]) {
+   $logo = imagecreatetruecolor($width, $height);
+   imagefill($logo, 0, 0, imagecolorallocate($logo, 245, 245, 245));
+   imagestring($logo, 5, 8, 20, 'COMPANY', imagecolorallocate($logo, 20, 40, 80));
+   imagepng($logo, GLPI_PLUGIN_DOC_DIR . '/qrcodelabel/logo.png');
+   $outputs[$name] = Label::printPDF(array_slice($assets, 0, 1), $params);
+}
 foreach ($outputs as $file) {
    if (!$file || !is_file($file) || file_get_contents($file, false, null, 0, 4) !== '%PDF') {
       throw new RuntimeException('PDF generation failed');
