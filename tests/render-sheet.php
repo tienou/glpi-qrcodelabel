@@ -5,7 +5,7 @@ class Session {
    public static function getLoginUserID() { return 1; }
 }
 function __($text, $domain = '') { return $text; }
-define('PLUGIN_QRCODELABEL_VERSION', '1.5.3');
+define('PLUGIN_QRCODELABEL_VERSION', '1.5.1');
 define('GLPI_VERSION', '11.0.0');
 define('GLPI_TMP_DIR', sys_get_temp_dir() . '/qrcodelabel-test-' . getmypid() . '-' . bin2hex(random_bytes(4)));
 define('GLPI_PLUGIN_DOC_DIR', GLPI_TMP_DIR);
