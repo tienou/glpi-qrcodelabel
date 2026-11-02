@@ -1055,7 +1055,7 @@ class Label extends CommonDBTM {
                }
                // Let TCPDF detect the image type (older installs may hold a
                // JPEG/GIF saved as logo.png).
-               $pdf->Image($useLogoPath, $logoX, $logoY, $logoW, $logoHmm, '', '', '', false, 300);
+               $pdf->Image(self::pdfImageSource($useLogoPath), $logoX, $logoY, $logoW, $logoHmm, '', '', '', false, 300);
             }
          }
 
@@ -1065,7 +1065,7 @@ class Label extends CommonDBTM {
             ? self::generateQrPng($asset['url'], $cm['qr_fg'], $cm['qr_bg'])
             : false;
          if ($qrPng && file_exists($qrPng)) {
-            $pdf->Image($qrPng, $leftColX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
+            $pdf->Image(self::pdfImageSource($qrPng), $leftColX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
          }
 
          // ── Vertical separator — centred in the gap between QR and text ───
@@ -1096,11 +1096,43 @@ class Label extends CommonDBTM {
       $uid     = (int)(Session::getLoginUserID() ?: 0);
       $pdfFile = 'qrcodelabel_' . $uid . '_' . $tapeSize . '_' . bin2hex(random_bytes(8)) . '.pdf';
       $pdfPath = GLPI_TMP_DIR . '/' . $pdfFile;
-      $pdf->Output($pdfPath, 'F');
+      // TCPDF 7 also restricts filesystem output. Obtain the PDF bytes and
+      // write only to our own GLPI temp path, without changing its allowlist.
+      $pdfData = $pdf->Output('', 'S');
+      if (!is_string($pdfData) || @file_put_contents($pdfPath, $pdfData) === false) {
+         self::cleanIntermediateFiles();
+         return false;
+      }
 
       self::cleanIntermediateFiles();
 
       return is_file($pdfPath) ? $pdfPath : false;
+   }
+
+   /**
+    * Embed only plugin-owned images as bytes, supported by TCPDF 6 and 7.
+    * TCPDF 7's file helper rejects local paths unless explicitly allowlisted;
+    * passing image bytes avoids changing that library-wide security policy.
+    */
+   private static function pdfImageSource(string $path): string {
+      $realPath = realpath($path);
+      $allowed = false;
+      foreach ([GLPI_TMP_DIR, GLPI_PLUGIN_DOC_DIR . '/qrcodelabel'] as $root) {
+         $realRoot = realpath($root);
+         if ($realPath !== false && $realRoot !== false
+               && strpos($realPath, $realRoot . DIRECTORY_SEPARATOR) === 0) {
+            $allowed = true;
+            break;
+         }
+      }
+      if (!$allowed || !is_file($realPath)) {
+         throw new \RuntimeException('PDF image is outside the plugin image directories.');
+      }
+      $data = @file_get_contents($realPath);
+      if ($data === false || $data === '') {
+         throw new \RuntimeException('Unable to read plugin PDF image: ' . $path);
+      }
+      return '@' . $data;
    }
 
    /** Avery: full-height QR on the left; logo and all text on the right. */
@@ -1122,7 +1154,7 @@ class Label extends CommonDBTM {
          $logoH = $logoW / $ratio;
          $useLogo = ($cm['invert_logo'] || $colorMode === 'mono')
             ? self::processLogo($logoPath, $colorMode) : $logoPath;
-         $pdf->Image($useLogo, $textX, $y + 1.5, $logoW, $logoH, '', '', '', false, 300);
+         $pdf->Image(self::pdfImageSource($useLogo), $textX, $y + 1.5, $logoW, $logoH, '', '', '', false, 300);
          $ts['text_top'] = 1.5 + $logoH + 1.5;
          $ts['name_base'] = $ts['text_top'] + 3;
       } else {
@@ -1141,7 +1173,7 @@ class Label extends CommonDBTM {
       $qrPng = !empty($asset['url'])
          ? self::generateQrPng($asset['url'], $cm['qr_fg'], $cm['qr_bg']) : false;
       if ($qrPng && file_exists($qrPng)) {
-         $pdf->Image($qrPng, $qrX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
+         $pdf->Image(self::pdfImageSource($qrPng), $qrX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
       }
    }
 

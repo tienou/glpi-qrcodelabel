@@ -11,8 +11,10 @@ define('GLPI_VERSION', getenv('TEST_GLPI_VERSION') ?: '11.0.0');
 define('GLPI_TMP_DIR', sys_get_temp_dir() . '/qrcodelabel-test-' . getmypid() . '-' . bin2hex(random_bytes(4)));
 define('GLPI_PLUGIN_DOC_DIR', GLPI_TMP_DIR);
 mkdir(GLPI_TMP_DIR, 0700, true);
+if (getenv('TEST_AUTOLOAD')) { require_once getenv('TEST_AUTOLOAD'); }
 require_once getenv('TCPDF_PATH') ?: '/usr/share/php/tcpdf/tcpdf.php';
-require_once dirname(getenv('TCPDF_PATH') ?: '/usr/share/php/tcpdf/tcpdf.php') . '/tcpdf_barcodes_2d.php';
+$legacyBarcode = dirname(getenv('TCPDF_PATH') ?: '/usr/share/php/tcpdf/tcpdf.php') . '/tcpdf_barcodes_2d.php';
+if (is_file($legacyBarcode)) { require_once $legacyBarcode; }
 require_once __DIR__ . '/../src/Sheetlayout.php';
 require_once __DIR__ . '/../src/Label.php';
 use GlpiPlugin\Qrcodelabel\Label;
@@ -61,6 +63,25 @@ foreach (['wide_logo' => [400, 70], 'square_logo' => [100, 100]] as $name => [$w
    imagepng($logo, GLPI_PLUGIN_DOC_DIR . '/qrcodelabel/logo.png');
    $outputs[$name] = Label::printPDF(array_slice($assets, 0, 1), $params);
 }
+// The PDF adapter must embed bytes without permitting unrelated local files.
+$sourceMethod = new ReflectionMethod(Label::class, 'pdfImageSource');
+$source = $sourceMethod->invoke(null, GLPI_PLUGIN_DOC_DIR . '/qrcodelabel/logo.png');
+if (substr($source, 0, 5) !== "@\x89PNG") {
+   throw new RuntimeException('Expected raw PNG image data');
+}
+$outside = tempnam(sys_get_temp_dir(), 'qrcodelabel-outside-');
+file_put_contents($outside, 'not a plugin image');
+$rejected = false;
+try { $sourceMethod->invoke(null, $outside); } catch (RuntimeException $e) { $rejected = true; }
+if (!$rejected) { throw new RuntimeException('Unrelated local file was accepted'); }
+$link = GLPI_TMP_DIR . '/outside-link.png';
+if (@symlink($outside, $link)) {
+   $rejected = false;
+   try { $sourceMethod->invoke(null, $link); } catch (RuntimeException $e) { $rejected = true; }
+   unlink($link);
+   if (!$rejected) { throw new RuntimeException('Symlink escaped plugin image directories'); }
+}
+unlink($outside);
 foreach ($outputs as $file) {
    if (!$file || !is_file($file) || file_get_contents($file, false, null, 0, 4) !== '%PDF') {
       throw new RuntimeException('PDF generation failed');
