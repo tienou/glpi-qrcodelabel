@@ -964,6 +964,11 @@ class Label extends CommonDBTM {
       $pdf->SetCreator('GLPI QR Code Label plugin v' . PLUGIN_QRCODELABEL_VERSION);
       $pdf->SetAuthor('GLPI');
       $pdf->SetTitle(__('QR Code Labels', 'qrcodelabel'));
+      if ($isAvery) {
+         // Physical label stock requires actual-size printing. TCPDF defaults
+         // to AppDefault, which permits viewer-dependent print scaling.
+         $pdf->setViewerPreferences(['PrintScaling' => 'None']);
+      }
       $pdf->SetMargins($marginX, $marginY, $marginX, true);
       $pdf->SetAutoPageBreak(false, $marginY);
       $pdf->SetPrintHeader(false);
