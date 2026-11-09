@@ -17,11 +17,23 @@ use Html;
 use Plugin;
 use Session;
 
+// GLPI 12 types CommonGLPI::$rightname; GLPI 10/11 leave it untyped.
+// A child property must match the parent type exactly on each version.
+if ((new \ReflectionProperty(\CommonGLPI::class, 'rightname'))->hasType()) {
+   trait ConfigRightnameProperty {
+      public static string $rightname = '';
+   }
+} else {
+   trait ConfigRightnameProperty {
+      public static $rightname = '';
+   }
+}
+
 class Config extends CommonDBTM {
 
    static $table = 'glpi_plugin_qrcodelabel_configs';
 
-   static $rightname = 'plugin_qrcodelabel_config';
+   use ConfigRightnameProperty;
 
    /** HTML-escape for output in attributes and text nodes. */
    private static function e($value): string {
@@ -73,12 +85,13 @@ class Config extends CommonDBTM {
 
       // ── Tape size ─────────────────────────────────────────────────────────
       echo "<tr class='tab_bg_1'>";
-      echo "<td>" . __('Default tape size', 'qrcodelabel') . "</td><td>";
+      echo "<td>" . __('Default label format', 'qrcodelabel') . "</td><td>";
       Dropdown::showFromArray('tape_size', [
          '24mm' => '24 mm (Brother)',
          '25mm' => '25 mm',
          '36mm' => '36 mm (Brother)',
          '50mm' => '50 mm',
+         'avery61528' => 'Avery 61528 (14 / Letter)',
       ], ['value' => $config['tape_size'], 'width' => '170']);
       echo "</td>";
 
@@ -137,6 +150,8 @@ class Config extends CommonDBTM {
       ]);
       echo "</td></tr>";
 
+      echo "<tr><td colspan='4'><small>Avery 61528 profiles always generate a Letter portrait PDF (14 labels), regardless of the page and output defaults.</small></td></tr>";
+
       // ── Save button ───────────────────────────────────────────────────────
       echo "<tr><td class='tab_bg_1' colspan='4' align='center'>";
       echo "<input type='submit' name='saveConfig' value='" . self::e(__('Save')) . "' class='submit'>";
@@ -193,6 +208,7 @@ class Config extends CommonDBTM {
          '25mm' => '25 mm',
          '36mm' => '36 mm (Brother)',
          '50mm' => '50 mm',
+         'avery61528' => 'Avery 61528 (14 / Letter)',
       ];
       $pageSizeOptions = ['A4' => 'A4', 'A3' => 'A3', 'LETTER' => 'Letter', 'LEGAL' => 'Legal'];
 
@@ -209,7 +225,7 @@ class Config extends CommonDBTM {
       // Table header
       echo "<tr class='tab_bg_2'>";
       echo "<th>" . __('Name') . "</th>";
-      echo "<th>" . __('Tape size', 'qrcodelabel') . "</th>";
+      echo "<th>" . __('Label format', 'qrcodelabel') . "</th>";
       echo "<th>" . __('Color mode', 'qrcodelabel') . "</th>";
       echo "<th>" . __('Show inventory date', 'qrcodelabel') . "</th>";
       echo "<th>" . __('Page size', 'qrcodelabel') . "</th>";
@@ -325,3 +341,6 @@ class Config extends CommonDBTM {
       echo "</tr></table></div>";
    }
 }
+
+// Set the class-specific permission after composing the inherited property.
+Config::$rightname = 'plugin_qrcodelabel_config';

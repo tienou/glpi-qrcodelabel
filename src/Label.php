@@ -28,9 +28,21 @@ use Session;
  *
  * No external vendor dependencies — TCPDF ships with GLPI 10 and 11.
  */
+// GLPI 12 types CommonGLPI::$rightname; GLPI 10/11 leave it untyped.
+// A child property must match the parent type exactly on each version.
+if ((new \ReflectionProperty(\CommonGLPI::class, 'rightname'))->hasType()) {
+   trait LabelRightnameProperty {
+      public static string $rightname = '';
+   }
+} else {
+   trait LabelRightnameProperty {
+      public static $rightname = '';
+   }
+}
+
 class Label extends CommonDBTM {
 
-   static $rightname = 'plugin_qrcodelabel_label';
+   use LabelRightnameProperty;
 
    /** Maximum number of copies per asset (PDF sheet). */
    public const MAX_COPIES = 50;
@@ -46,6 +58,13 @@ class Label extends CommonDBTM {
     *   - bottom_base : baseline of the last line (owner text / inventory number)
     */
    private static array $tapeSizes = [
+      'avery61528' => [
+         'label_w' => 69.85, 'label_h' => 31.75, 'qr_size' => 29.75,
+         'font_name' => 10, 'font_type' => 6, 'font_sn' => 6.5,
+         'font_loc' => 6, 'font_inv' => 6,
+         'logo_h' => 5, 'top_m' => 3, 'bot_m' => 3,
+         'name_base' => 7, 'text_top' => 3, 'bottom_base' => 28,
+      ],
       '24mm' => [
          'label_w' => 70, 'label_h' => 24, 'qr_size' => 13,
          'font_name' => 7, 'font_type' => 4.5, 'font_sn' => 5,
@@ -261,14 +280,20 @@ class Label extends CommonDBTM {
       }
       echo "</td></tr>";
 
-      // Copies only make sense on a PDF sheet: PNG export produces one image
-      // per asset (copies are set in the printer app).
-      if (self::getOutputFormat() !== 'png') {
-         echo "<tr class='" . self::e($rowClass) . "'>";
-         echo "<td>" . self::e(__('Number of copies', 'qrcodelabel')) . "</td><td>";
-         echo "<input type='number' name='nb_copies' value='1' min='1' max='" . self::MAX_COPIES
-            . "' step='1' class='form-control' style='width: 7em'>";
-         echo "</td></tr>";
+      // PDF copies also apply to Avery when the global tape format is PNG.
+      echo "<tr class='" . self::e($rowClass) . "'>";
+      echo "<td>" . self::e(__('Number of copies', 'qrcodelabel')) . "</td><td>";
+      echo "<input type='number' name='nb_copies' value='1' min='1' max='" . self::MAX_COPIES
+         . "' step='1' class='form-control' style='width: 7em'>";
+      echo "</td></tr>";
+      echo "<tr class='" . self::e($rowClass) . "'><td>"
+         . self::e(__('First label position (Avery 61528)', 'qrcodelabel')) . "</td><td>";
+      echo "<input type='number' name='start_position' value='1' min='1' max='14' step='1' class='form-control' style='width: 7em'>";
+      echo "<small>1 = top left, 2 = top right, then the next row. Avery always uses PDF / Letter / Portrait.</small></td></tr>";
+      foreach (['offset_x' => 'Horizontal adjustment (mm)', 'offset_y' => 'Vertical adjustment (mm)'] as $field => $caption) {
+         echo "<tr class='" . self::e($rowClass) . "'><td>" . self::e(__($caption, 'qrcodelabel')) . "</td><td>";
+         echo "<input type='number' name='" . $field . "' value='0' min='-5' max='5' step='0.1' class='form-control' style='width: 7em'>";
+         echo "<small>Avery only. Positive values move right / down.</small></td></tr>";
       }
    }
 
@@ -362,8 +387,11 @@ class Label extends CommonDBTM {
    /**
     * Rendering parameters for a print profile + global configuration.
     */
-   static function buildParams(array $profile, array $config): array {
+   static function buildParams(array $profile, array $config, array $input = []): array {
       return [
+         'start_position' => Sheetlayout::sanitizeStart($input['start_position'] ?? 1),
+         'offset_x'     => Sheetlayout::sanitizeOffset($input['offset_x'] ?? 0),
+         'offset_y'     => Sheetlayout::sanitizeOffset($input['offset_y'] ?? 0),
          'tape_size'     => $profile['tape_size'],
          'color_mode'    => $profile['color_mode'],
          'show_date'     => (bool)$profile['show_date'],
@@ -423,7 +451,7 @@ class Label extends CommonDBTM {
          $config = Config::getConfig();
          $ok = self::emitDownloadLinks(
             $assets,
-            self::buildParams($profile, $config),
+            self::buildParams($profile, $config, $input),
             self::getOutputFormat($config),
             Html::getBackUrl()
          );
@@ -459,6 +487,10 @@ class Label extends CommonDBTM {
     */
    static function emitDownloadLinks(array $assets, array $params, string $format, string $backUrl = ''): bool {
       $files = [];
+      // A sheet profile is independent of the global Brother PNG preference.
+      if (($params['tape_size'] ?? '') === 'avery61528') {
+         $format = 'pdf';
+      }
 
       if ($format === 'pdf' || $format === 'both') {
          $pdfPath = self::printPDF($assets, $params);
@@ -914,6 +946,11 @@ class Label extends CommonDBTM {
       $colorMode = $params['color_mode'] ?? 'bw';
       $pageSize  = strtoupper($params['page_size'] ?? 'A4');
       $isLandscape = (($params['orientation'] ?? 'Portrait') === 'Landscape');
+      $isAvery = $tapeSize === 'avery61528';
+      if ($isAvery) {
+         $pageSize = 'LETTER';
+         $isLandscape = false;
+      }
 
       if (!isset(self::$tapeSizes[$tapeSize])) {
          $tapeSize = '36mm';
@@ -953,6 +990,11 @@ class Label extends CommonDBTM {
       $pdf->SetCreator('GLPI QR Code Label plugin v' . PLUGIN_QRCODELABEL_VERSION);
       $pdf->SetAuthor('GLPI');
       $pdf->SetTitle(__('QR Code Labels', 'qrcodelabel'));
+      if ($isAvery) {
+         // Physical label stock requires actual-size printing. TCPDF defaults
+         // to AppDefault, which permits viewer-dependent print scaling.
+         $pdf->setViewerPreferences(['PrintScaling' => 'None']);
+      }
       $pdf->SetMargins($marginX, $marginY, $marginX, true);
       $pdf->SetAutoPageBreak(false, $marginY);
       $pdf->SetPrintHeader(false);
@@ -966,6 +1008,13 @@ class Label extends CommonDBTM {
       $cols    = max(1, (int)(($pageW - 2 * $marginX) / $labelW));
       $rows    = max(1, (int)(($pageH - 2 * $marginY) / ($labelH + $gapY)));
       $perPage = $cols * $rows;
+      if ($isAvery) {
+         $cols = 2;
+         $rows = 7;
+         $perPage = Sheetlayout::CAPACITY;
+         $skip = Sheetlayout::sanitizeStart($params['start_position'] ?? 1) - 1;
+         $assets = array_merge(array_fill(0, $skip, null), array_values($assets));
+      }
 
       $measure = static function (string $text, float $pt, string $style) use ($pdf): float {
          $pdf->SetFont('helvetica', $style, $pt);
@@ -988,6 +1037,9 @@ class Label extends CommonDBTM {
          $row = (int)($pi / $cols);
          $x   = $marginX + $col * $labelW;
          $y   = $marginY + $row * ($labelH + $gapY);
+         if ($isAvery) {
+            [$x, $y] = Sheetlayout::position($pi, $params['offset_x'] ?? 0, $params['offset_y'] ?? 0);
+         }
 
          // Blank slot
          if ($asset === null) {
@@ -998,6 +1050,12 @@ class Label extends CommonDBTM {
          if (in_array($colorMode, ['inverse', 'inverse_mono'], true)) {
             $pdf->SetFillColor(0, 0, 0);
             $pdf->Rect($x, $y, $labelW, $labelH, 'F');
+         }
+
+         if ($isAvery) {
+            self::renderAveryLabel($pdf, $asset, $ts, $cm, $colorMode, $layoutOpt,
+               $measure, $x, $y, $hasLogo ? $logoPath : '');
+            continue;
          }
 
          // ── Left column: logo (top) + QR (below) ──────────────────────────
@@ -1028,7 +1086,7 @@ class Label extends CommonDBTM {
                }
                // Let TCPDF detect the image type (older installs may hold a
                // JPEG/GIF saved as logo.png).
-               $pdf->Image($useLogoPath, $logoX, $logoY, $logoW, $logoHmm, '', '', '', false, 300);
+               $pdf->Image(self::pdfImageSource($useLogoPath), $logoX, $logoY, $logoW, $logoHmm, '', '', '', false, 300);
             }
          }
 
@@ -1038,7 +1096,7 @@ class Label extends CommonDBTM {
             ? self::generateQrPng($asset['url'], $cm['qr_fg'], $cm['qr_bg'])
             : false;
          if ($qrPng && file_exists($qrPng)) {
-            $pdf->Image($qrPng, $leftColX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
+            $pdf->Image(self::pdfImageSource($qrPng), $leftColX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
          }
 
          // ── Vertical separator — centred in the gap between QR and text ───
@@ -1069,11 +1127,85 @@ class Label extends CommonDBTM {
       $uid     = (int)(Session::getLoginUserID() ?: 0);
       $pdfFile = 'qrcodelabel_' . $uid . '_' . $tapeSize . '_' . bin2hex(random_bytes(8)) . '.pdf';
       $pdfPath = GLPI_TMP_DIR . '/' . $pdfFile;
-      $pdf->Output($pdfPath, 'F');
+      // TCPDF 7 also restricts filesystem output. Obtain the PDF bytes and
+      // write only to our own GLPI temp path, without changing its allowlist.
+      $pdfData = $pdf->Output('', 'S');
+      if (!is_string($pdfData) || @file_put_contents($pdfPath, $pdfData) === false) {
+         self::cleanIntermediateFiles();
+         return false;
+      }
 
       self::cleanIntermediateFiles();
 
       return is_file($pdfPath) ? $pdfPath : false;
+   }
+
+   /**
+    * Embed only plugin-owned images as bytes, supported by TCPDF 6 and 7.
+    * TCPDF 7's file helper rejects local paths unless explicitly allowlisted;
+    * passing image bytes avoids changing that library-wide security policy.
+    */
+   private static function pdfImageSource(string $path): string {
+      $realPath = realpath($path);
+      $allowed = false;
+      foreach ([GLPI_TMP_DIR, GLPI_PLUGIN_DOC_DIR . '/qrcodelabel'] as $root) {
+         $realRoot = realpath($root);
+         if ($realPath !== false && $realRoot !== false
+               && strpos($realPath, $realRoot . DIRECTORY_SEPARATOR) === 0) {
+            $allowed = true;
+            break;
+         }
+      }
+      if (!$allowed || !is_file($realPath)) {
+         throw new \RuntimeException('PDF image is outside the plugin image directories.');
+      }
+      $data = @file_get_contents($realPath);
+      if ($data === false || $data === '') {
+         throw new \RuntimeException('Unable to read plugin PDF image: ' . $path);
+      }
+      return '@' . $data;
+   }
+
+   /** Avery: full-height QR on the left; logo and all text on the right. */
+   private static function renderAveryLabel(\TCPDF $pdf, array $asset, array $ts,
+         array $cm, string $colorMode, array $opt, callable $measure,
+         float $x, float $y, string $logoPath): void {
+      // 1 mm outside each edge, in addition to the QR image's four-module
+      // quiet zone. The QR size never depends on the presence/shape of a logo.
+      $qrSize = $ts['qr_size'];
+      $qrX = $x + 1;
+      $qrY = $y + ($ts['label_h'] - $qrSize) / 2;
+      $textX = $qrX + $qrSize + 1.5;
+      $textW = $ts['label_w'] - $qrSize - 4;
+      $logoInfo = $logoPath !== '' ? @getimagesize($logoPath) : false;
+      $hasLogo = $logoInfo && $logoInfo[0] > 0 && $logoInfo[1] > 0;
+      if ($hasLogo) {
+         $ratio = $logoInfo[0] / $logoInfo[1];
+         $logoW = min($textW, 7 * $ratio);
+         $logoH = $logoW / $ratio;
+         $useLogo = ($cm['invert_logo'] || $colorMode === 'mono')
+            ? self::processLogo($logoPath, $colorMode) : $logoPath;
+         $pdf->Image(self::pdfImageSource($useLogo), $textX, $y + 1.5, $logoW, $logoH, '', '', '', false, 300);
+         $ts['text_top'] = 1.5 + $logoH + 1.5;
+         $ts['name_base'] = $ts['text_top'] + 3;
+      } else {
+         $ts['text_top'] = 2;
+         $ts['name_base'] = 6;
+      }
+      $ts['bottom_base'] = $ts['label_h'] - 2;
+      $fitW = $textW - 2 * $pdf->getCellPaddings()['L'];
+      foreach (self::layoutText($ts, $asset, $opt, $fitW, $measure) as $line) {
+         $color = $cm[$line['color']];
+         $pdf->SetFont('helvetica', $line['style'], $line['pt']);
+         $pdf->SetTextColor($color[0], $color[1], $color[2]);
+         $pdf->SetXY($textX, $y + $line['baseline']);
+         $pdf->Cell($textW, 0, $line['text'], 0, 0, $line['align'], false, '', 0, false, 'L', 'T');
+      }
+      $qrPng = !empty($asset['url'])
+         ? self::generateQrPng($asset['url'], $cm['qr_fg'], $cm['qr_bg']) : false;
+      if ($qrPng && file_exists($qrPng)) {
+         $pdf->Image(self::pdfImageSource($qrPng), $qrX, $qrY, $qrSize, $qrSize, 'PNG', '', '', false, 300);
+      }
    }
 
    /**
@@ -1394,3 +1526,6 @@ class Label extends CommonDBTM {
    }
 
 }
+
+// Set the class-specific permission after composing the inherited property.
+Label::$rightname = 'plugin_qrcodelabel_label';

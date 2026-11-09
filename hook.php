@@ -154,6 +154,24 @@ function plugin_qrcodelabel_install() {
       ]);
    }
 
+   // Add the sheet profile on upgrade as well as on fresh installations.
+   // Leave the administrator's existing default profile unchanged.
+   $hasAvery = false;
+   foreach ($DB->request([
+      'FROM' => 'glpi_plugin_qrcodelabel_printprofiles',
+      'WHERE' => ['tape_size' => 'avery61528'],
+      'LIMIT' => 1,
+   ]) as $row) {
+      $hasAvery = true;
+   }
+   if (!$hasAvery) {
+      $DB->insert('glpi_plugin_qrcodelabel_printprofiles', [
+         'name' => 'Avery 61528', 'tape_size' => 'avery61528',
+         'color_mode' => 'bw', 'show_date' => 0,
+         'page_size' => 'LETTER', 'orientation' => 'Portrait', 'is_default' => 0,
+      ]);
+   }
+
    // ── Profile rights ────────────────────────────────────────────────────────
    Profile::initProfile();
 
@@ -199,3 +217,4 @@ function plugin_qrcodelabel_uninstall() {
 
    return true;
 }
+

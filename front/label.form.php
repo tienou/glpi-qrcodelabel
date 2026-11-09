@@ -63,7 +63,7 @@ $assets = array_fill(0, $copies, Label::buildAssetData($item));
 
 $ok = Label::emitDownloadLinks(
    $assets,
-   Label::buildParams($profile, $config),
+   Label::buildParams($profile, $config, $_POST),
    Label::getOutputFormat($config),
    Html::getBackUrl()
 );
@@ -74,3 +74,4 @@ if (!$ok) {
 
 // Post/Redirect/Get to a page that keeps the download buttons on screen.
 Html::redirect(Label::getWebPath() . '/front/download.php');
+
