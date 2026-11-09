@@ -39,7 +39,7 @@ use Glpi\Plugin\Hooks;
 use GlpiPlugin\Qrcodelabel\Label;
 use GlpiPlugin\Qrcodelabel\Profile;
 
-define("PLUGIN_QRCODELABEL_VERSION", "1.5.0");
+define("PLUGIN_QRCODELABEL_VERSION", "1.5.1");
 
 // Minimal GLPI version, inclusive
 define('PLUGIN_QRCODELABEL_MIN_GLPI', '10.0.0');
@@ -178,19 +178,6 @@ function plugin_version_qrcodelabel() {
          ],
       ]
    ];
-}
-
-/**
- * Check prerequisites before install.
- *
- * @return boolean
- */
-function plugin_qrcodelabel_check_prerequisites() {
-   if (!extension_loaded('gd')) {
-      echo __('GD extension is required for QR code and logo image processing.', 'qrcodelabel');
-      return false;
-   }
-   return true;
 }
 
 /**

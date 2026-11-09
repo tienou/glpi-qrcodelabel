@@ -137,6 +137,32 @@ class Label extends CommonDBTM {
       return $full ? rtrim((string)$CFG_GLPI['root_doc'], '/') . $path : $path;
    }
 
+   /**
+    * Abort the current front script with an HTTP error (GLPI 10 and 11).
+    *
+    * GLPI 11 deprecates Html::displayErrorAndDie() and exit()/die() in favour of
+    * the Glpi\Exception\Http\* exceptions rendered by its Symfony kernel;
+    * GLPI 10 has no such exceptions and keeps Html::displayErrorAndDie().
+    *
+    * @param int    $status  400, 403 or 404
+    * @param string $message Message shown to the user
+    */
+   static function httpError(int $status, string $message): void {
+      $classes = [
+         400 => 'Glpi\Exception\Http\BadRequestHttpException',
+         403 => 'Glpi\Exception\Http\AccessDeniedHttpException',
+         404 => 'Glpi\Exception\Http\NotFoundHttpException',
+      ];
+      $class = $classes[$status] ?? $classes[404];
+
+      if (class_exists($class)) {
+         $exception = new $class();
+         $exception->setMessageToDisplay($message);
+         throw $exception;
+      }
+      Html::displayErrorAndDie($message, true);
+   }
+
    static function getMenuContent(): array {
       $webDir = self::getWebPath(false);
       return [

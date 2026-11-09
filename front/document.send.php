@@ -12,6 +12,8 @@
    Compatible with GLPI 10 and GLPI 11.
  */
 
+use GlpiPlugin\Qrcodelabel\Label;
+
 // GLPI 10 serves plugin front files as plain PHP scripts: bootstrap GLPI here.
 // GLPI 11 has already booted through its Symfony kernel (LegacyFileLoadController)
 // and defined GLPI_ROOT.
@@ -22,20 +24,20 @@ if (!defined('GLPI_ROOT')) {
 Session::checkLoginUser();
 
 if (empty($_GET['file'])) {
-   Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);
+   Label::httpError(404, __('File not found.', 'qrcodelabel'));
    return;
 }
 
 $file = (string)$_GET['file'];
 // Reject any traversal attempt up-front; realpath check below is a defence-in-depth.
 if (strpos($file, '..') !== false || strpos($file, "\0") !== false) {
-   Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);
+   Label::httpError(404, __('File not found.', 'qrcodelabel'));
    return;
 }
 $path = GLPI_PLUGIN_DOC_DIR . '/' . ltrim(str_replace('\\', '/', $file), '/');
 
 if (!file_exists($path)) {
-   Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);
+   Label::httpError(404, __('File not found.', 'qrcodelabel'));
    return;
 }
 
@@ -45,7 +47,7 @@ $realPath = realpath($path);
 $realDoc  = realpath(GLPI_PLUGIN_DOC_DIR . '/qrcodelabel');
 if ($realPath === false || $realDoc === false
       || strpos($realPath, $realDoc . DIRECTORY_SEPARATOR) !== 0) {
-   Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);
+   Label::httpError(404, __('File not found.', 'qrcodelabel'));
    return;
 }
 
@@ -59,7 +61,7 @@ $mimeMap = [
    'gif'  => 'image/gif',
 ];
 if (!isset($mimeMap[$ext])) {
-   Html::displayErrorAndDie(__('File not found.', 'qrcodelabel'), true);
+   Label::httpError(404, __('File not found.', 'qrcodelabel'));
    return;
 }
 $mime = $mimeMap[$ext];

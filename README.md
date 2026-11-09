@@ -134,6 +134,14 @@ After enabling the plugin:
 
 ## Changelog
 
+### 1.5.1
+Alignment with the official GLPI developer documentation (GLPI 11 upgrade guide). Tested on GLPI 10.0.28 and 11.0 (PHP 8.5), lint-checked on PHP 7.4.
+- Front scripts no longer call `Html::displayErrorAndDie()` (deprecated in GLPI 11): errors now throw the `Glpi\Exception\Http\*` exceptions on GLPI 11 (proper HTTP 400 / 403 / 404), with the legacy behaviour kept on GLPI 10.
+- Install no longer calls `DBmysql::doQueryOrDie()` (deprecated in GLPI 11, absent before GLPI 10.0.11 although 10.0.0 is the declared minimum).
+- Uninstall now removes the plugin data folder (`files/_plugins/qrcodelabel`, uploaded logo), as the plugin guidelines recommend.
+- The configuration page is shown under *Tools*, like its menu entry.
+- Removed `plugin_qrcodelabel_check_prerequisites()`, which duplicated the `gd` requirement already declared in `plugin_version_qrcodelabel()`.
+
 ### 1.5.0
 - **Fix (#4)** — HTTP 500 on every plugin page with GLPI 10 (`Class "Session" not found`): the `front/` scripts did not bootstrap GLPI 10 (GLPI 11 does it through its Symfony kernel).
 - **Fix** — label generation always failed on GLPI 10 (`Com\Tecnick\Barcode\Barcode` is only bundled with GLPI 11): falls back to TCPDF's own QR encoder.

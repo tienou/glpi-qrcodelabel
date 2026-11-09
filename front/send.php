@@ -36,7 +36,7 @@ Session::checkLoginUser();
 
 // ── Resolve token ─────────────────────────────────────────────────────────
 if (empty($_GET['token'])) {
-   Html::displayErrorAndDie(__('Invalid request.', 'qrcodelabel'), true);
+   Label::httpError(400, __('Invalid request.', 'qrcodelabel'));
    return;
 }
 
@@ -44,9 +44,9 @@ $token   = (string)$_GET['token'];
 $absPath = Label::resolveTmpFile($token);
 
 if ($absPath === null) {
-   Html::displayErrorAndDie(
-      __('The requested file no longer exists or has already been downloaded.', 'qrcodelabel'),
-      true
+   Label::httpError(
+      404,
+      __('The requested file no longer exists or has already been downloaded.', 'qrcodelabel')
    );
    return;
 }
@@ -57,7 +57,7 @@ $realTmp  = realpath(GLPI_TMP_DIR);
 
 if ($realPath === false || $realTmp === false
       || strpos($realPath, $realTmp . DIRECTORY_SEPARATOR) !== 0) {
-   Html::displayErrorAndDie(__('Unauthorized access to this file', 'qrcodelabel'), true);
+   Label::httpError(403, __('Unauthorized access to this file', 'qrcodelabel'));
    return;
 }
 

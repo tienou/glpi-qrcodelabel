@@ -35,6 +35,26 @@ function plugin_qrcodelabel_MassiveActions($itemtype) {
 
 
 /**
+ * Run a DDL statement (CREATE TABLE...) on GLPI 10.0.0+ and 11.
+ *
+ * - GLPI 11: DBmysql::doQuery() throws on error; doQueryOrDie() is deprecated.
+ * - GLPI 10.0.11+: doQueryOrDie() (queryOrDie() deprecated).
+ * - GLPI 10.0.0-10.0.10: only queryOrDie() exists.
+ */
+function plugin_qrcodelabel_ddl(string $sql): void {
+   global $DB;
+
+   if (version_compare(GLPI_VERSION, '11.0.0-dev', '>=')) {
+      $DB->doQuery($sql);
+   } else if (method_exists($DB, 'doQueryOrDie')) {
+      $DB->doQueryOrDie($sql, $DB->error());
+   } else {
+      $DB->queryOrDie($sql, $DB->error());
+   }
+}
+
+
+/**
  * Install process for plugin.
  */
 function plugin_qrcodelabel_install() {
@@ -54,7 +74,7 @@ function plugin_qrcodelabel_install() {
 
    // ── Table: glpi_plugin_qrcodelabel_configs ────────────────────────────────
    if (!$DB->tableExists("glpi_plugin_qrcodelabel_configs")) {
-      $DB->doQueryOrDie(
+      plugin_qrcodelabel_ddl(
          "CREATE TABLE `glpi_plugin_qrcodelabel_configs` (
             `id`            INT UNSIGNED  NOT NULL AUTO_INCREMENT,
             `tape_size`     VARCHAR(10)   NOT NULL DEFAULT '36mm',
@@ -69,8 +89,7 @@ function plugin_qrcodelabel_install() {
          ) ENGINE=InnoDB
            DEFAULT CHARSET={$default_charset}
            COLLATE={$default_collation}
-           ROW_FORMAT=DYNAMIC",
-         $DB->error()
+           ROW_FORMAT=DYNAMIC"
       );
 
       $DB->insert("glpi_plugin_qrcodelabel_configs", [
@@ -107,7 +126,7 @@ function plugin_qrcodelabel_install() {
 
    // ── Table: glpi_plugin_qrcodelabel_printprofiles ────────────────────────
    if (!$DB->tableExists("glpi_plugin_qrcodelabel_printprofiles")) {
-      $DB->doQueryOrDie(
+      plugin_qrcodelabel_ddl(
          "CREATE TABLE `glpi_plugin_qrcodelabel_printprofiles` (
             `id`            INT UNSIGNED  NOT NULL AUTO_INCREMENT,
             `name`          VARCHAR(100)  NOT NULL DEFAULT '',
@@ -121,8 +140,7 @@ function plugin_qrcodelabel_install() {
          ) ENGINE=InnoDB
            DEFAULT CHARSET={$default_charset}
            COLLATE={$default_collation}
-           ROW_FORMAT=DYNAMIC",
-         $DB->error()
+           ROW_FORMAT=DYNAMIC"
       );
 
       $DB->insert("glpi_plugin_qrcodelabel_printprofiles", [
@@ -166,6 +184,18 @@ function plugin_qrcodelabel_uninstall() {
    $migration->executeMigration();
 
    Profile::removeRights();
+
+   // Remove the plugin's data directory (uploaded logo), as recommended by the
+   // GLPI plugin guidelines (files/_plugins/qrcodelabel).
+   $docDir = GLPI_PLUGIN_DOC_DIR . '/qrcodelabel';
+   if (is_dir($docDir)) {
+      foreach (glob($docDir . '/*') ?: [] as $file) {
+         if (is_file($file)) {
+            @unlink($file);
+         }
+      }
+      @rmdir($docDir);
+   }
 
    return true;
 }

@@ -10,6 +10,7 @@
  */
 
 use GlpiPlugin\Qrcodelabel\Config;
+use GlpiPlugin\Qrcodelabel\Label;
 
 // GLPI 10 serves plugin front files as plain PHP scripts: GLPI must be
 // bootstrapped here (without it: "Class Session not found" -> HTTP 500).
@@ -23,7 +24,8 @@ if (!defined('GLPI_ROOT')) {
 // Technician can manage QR Code Label settings without full GLPI setup rights.
 Session::checkRight('plugin_qrcodelabel_config', UPDATE);
 
-Html::header(__('QR Code Label', 'qrcodelabel'), $_SERVER['PHP_SELF'], "config", "plugins");
+// Same sector as the menu entry (Tools > QR Code Labels) so it stays highlighted.
+Html::header(__('QR Code Label', 'qrcodelabel'), $_SERVER['PHP_SELF'], 'tools', Label::class);
 
 $config = new Config();
 $config->showConfigForm();
